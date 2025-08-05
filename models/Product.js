@@ -20,8 +20,7 @@ const ProductSchema = new mongoose.Schema({
     category: {
         type: String,
         required: true,
-        enum: ['Trà sữa', 'Trà trái cây', 'Đá xay', 'Topping', 'Trà truyền thống'] // Thêm 'Trà truyền thống'
-    },
+        enum: ['Trà sữa', 'Trà trái cây', 'Đá xay', 'Topping', 'Cà phê', 'Nước ép']    },
     toppings: [{
         type: String
     }],

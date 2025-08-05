@@ -38,7 +38,7 @@ router.get('/products', isAdmin, async (req, res) => {
         const products = await Product.find();
         const toppings = await Product.find({ category: 'Topping' }).select('name');
         const toppingList = toppings.map(t => t.name);
-        res.render('admin/products', { products, toppings: toppingList });
+        res.render('admin/products', { products, toppings: toppingList, messages: req.flash() });
     } catch (err) {
         console.error(err);
         req.flash('error_msg', 'Lỗi server khi tải danh sách sản phẩm');
@@ -53,7 +53,7 @@ router.post('/products', isAdmin, upload.single('image'), validateProduct, async
 
         toppings = category === 'Topping' ? [] : (toppings ? (Array.isArray(toppings) ? toppings : [toppings]) : []);
 
-        const validCategories = ['Trà sữa', 'Trà trái cây', 'Đá xay', 'Topping', 'Cà phê']; // Thay "Trà truyền thống" bằng "Cà phê"
+        const validCategories = ['Trà sữa', 'Trà trái cây', 'Đá xay', 'Topping', 'Cà phê', 'Nước ép']; // Thêm 'Nước ép'
         if (!validCategories.includes(category)) {
             throw new Error(`Danh mục '${category}' không hợp lệ. Chọn: ${validCategories.join(', ')}`);
         }
@@ -68,7 +68,8 @@ router.post('/products', isAdmin, upload.single('image'), validateProduct, async
         });
 
         await product.save();
-        res.status(201).json({ message: 'Thêm sản phẩm thành công' });
+        req.flash('success_msg', 'Thêm sản phẩm thành công!');
+        res.redirect('/admin/products');
     } catch (err) {
         console.error('Lỗi khi thêm sản phẩm:', err);
         res.status(500).json({ message: err.message || 'Lỗi server khi thêm sản phẩm' });
@@ -136,7 +137,7 @@ router.delete('/products/:id', isAdmin, async (req, res) => {
         }
 
         await Product.deleteOne({ _id: req.params.id });
-        res.status(200).json({ message: 'Xóa sản phẩm thành công' });
+        return res.status(200).json({ message: 'Xóa sản phẩm thành công' });
     } catch (err) {
         console.error('Lỗi khi xóa sản phẩm:', err);
         res.status(500).json({ message: 'Lỗi server khi xóa sản phẩm' });

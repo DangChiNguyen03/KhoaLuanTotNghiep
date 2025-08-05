@@ -1,4 +1,10 @@
 <div class="container">
+    {{#if messages.success_msg}}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        {{messages.success_msg}}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+{{/if}}
     <h1 class="mb-4">Quản lý sản phẩm</h1>
     
     <!-- Add Product Button -->
@@ -22,7 +28,7 @@
             <tbody>
                 {{#each products}}
                 <tr>
-                    <td><img src="{{image}}" alt="{{name}}" style="width: 50px; height: 50px; object-fit: cover;"></td>
+                    <td><img src="{{image}}" alt="{{name}}" style="width: 100px; height: 100px; object-fit: contain; background: #fff;"></td>
                     <td>{{name}}</td>
                     <td>{{price}}đ</td>
                     <td>{{category}}</td>
@@ -51,7 +57,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="addProductForm" enctype="multipart/form-data">
+                <form id="addProductForm" enctype="multipart/form-data" method="POST" action="/admin/products">
                     <div class="mb-3">
                         <label class="form-label">Tên sản phẩm</label>
                         <input type="text" class="form-control" name="name" required>
@@ -71,17 +77,9 @@
                             <option value="Trà trái cây">Trà trái cây</option>
                             <option value="Đá xay">Đá xay</option>
                             <option value="Topping">Topping</option>
-                            <option value="Cà phê">Cà phê</option> <!-- Thay "Trà truyền thống" bằng "Cà phê" -->
+                            <option value="Cà phê">Cà phê</option>
+                            <option value="Nước ép">Nước ép</option>
                         </select>
-                    </div>
-                    <div class="mb-3" id="toppingSection">
-                        <label class="form-label">Topping</label>
-                        {{#each toppings}}
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="toppings[]" value="{{this}}" id="topping-{{this}}">
-                            <label class="form-check-label" for="topping-{{this}}">{{this}}</label>
-                        </div>
-                        {{/each}}
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Hình ảnh</label>
@@ -127,7 +125,8 @@
                             <option value="Trà trái cây">Trà trái cây</option>
                             <option value="Đá xay">Đá xay</option>
                             <option value="Topping">Topping</option>
-                            <option value="Cà phê">Cà phê</option> <!-- Thay "Trà truyền thống" bằng "Cà phê" -->
+                            <option value="Cà phê">Cà phê</option>
+                            <option value="Nước ép">Nước ép</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -154,11 +153,13 @@
 </div>
 
 <script>
+    console.log("Quản lý sản phẩm ADMIN đã load!");
 document.addEventListener('DOMContentLoaded', function() {
     const categorySelect = document.getElementById('categorySelect');
     const toppingSection = document.getElementById('toppingSection');
 
     function toggleToppingSection() {
+        if (!categorySelect || !toppingSection) return;
         if (categorySelect.value === 'Topping') {
             toppingSection.style.display = 'none';
         } else {
@@ -166,32 +167,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    categorySelect.addEventListener('change', toggleToppingSection);
-    toggleToppingSection();
-
-    const addProductForm = document.getElementById('addProductForm');
-    addProductForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(addProductForm);
-        
-        try {
-            const response = await fetch('/admin/products', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const result = await response.json();
-            if (response.status === 201) {
-                alert(result.message);
-                window.location.reload();
-            } else {
-                alert(result.message || 'Có lỗi xảy ra khi thêm sản phẩm');
-            }
-        } catch (err) {
-            console.error('Lỗi khi gửi yêu cầu thêm:', err);
-            alert('Có lỗi xảy ra khi gửi yêu cầu');
-        }
-    });
+    if (categorySelect && toppingSection) {
+        categorySelect.addEventListener('change', toggleToppingSection);
+        toggleToppingSection();
+    }
 
     const editButtons = document.querySelectorAll('.edit-product');
     editButtons.forEach(button => {
@@ -247,6 +226,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteButtons = document.querySelectorAll('.delete-product');
     deleteButtons.forEach(button => {
         button.addEventListener('click', async () => {
+            console.log('Đã click nút xóa', button.dataset.id);
+
             if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
                 const productId = button.dataset.id;
                 try {
@@ -256,7 +237,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     const result = await response.json();
                     if (response.status === 200) {
-                        alert(result.message);
                         window.location.reload();
                     } else {
                         alert(result.message || 'Có lỗi xảy ra khi xóa sản phẩm');
