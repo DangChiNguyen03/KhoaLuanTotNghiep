@@ -1,0 +1,98 @@
+<div class="container">
+    <h1 class="mb-4">Xin chào, {{user.name}}!</h1>
+
+    <div class="row">
+        {{#if user.role}}
+            {{#if (eq user.role 'admin')}}
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Quản lý sản phẩm</h5>
+                        <p class="card-text">Thêm, sửa, xóa các sản phẩm trong cửa hàng</p>
+                        <a href="/admin/products" class="btn btn-primary">
+                            <i class="fas fa-box me-2"></i>Quản lý sản phẩm
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {{/if}}
+        {{/if}}
+
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Giỏ hàng</h5>
+                    <p class="card-text">Xem và quản lý giỏ hàng của bạn</p>
+                    <a href="/cart" class="btn btn-primary">
+                        <i class="fas fa-shopping-cart me-2"></i>Xem giỏ hàng
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Danh sách sản phẩm</h5>
+                    <p class="card-text">Xem tất cả các sản phẩm trong cửa hàng</p>
+                    <a href="/products" class="btn btn-primary">
+                        <i class="fas fa-list me-2"></i>Xem sản phẩm
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Thông tin tài khoản</h3>
+                </div>
+                <div class="card-body">
+                    <form action="/dashboard/update" method="POST">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="150">Họ và tên:</th>
+                                <td><input class="form-control" name="name" value="{{user.name}}" {{#if user.googleId}}readonly{{/if}}></td>
+                            </tr>
+                            <tr>
+                                <th>Email:</th>
+                                <td><input class="form-control" name="email" value="{{user.email}}" readonly></td>
+                            </tr>
+                            <tr>
+                                <th>Địa chỉ:</th>
+                                <td><textarea class="form-control" name="address" rows="2">{{user.address}}</textarea></td>
+                            </tr>
+                            <tr>
+                                <th>Số điện thoại:</th>
+                                <td><input class="form-control" name="phone" value="{{user.phone}}"></td>
+                            </tr>
+                            <tr>
+                                <th>Ngày sinh:</th>
+                                <td><input class="form-control" type="date" name="birthday" value="{{user.birthday}}"></td>
+                            </tr>
+                        </table>
+                        <button class="btn btn-success" type="submit">Cập nhật thông tin</button>
+                    </form>
+                    <table class="table table-borderless">
+                        <tr>
+                            <th>Vai trò:</th>
+                            <td>
+                                {{#if (eq user.role 'admin')}}
+                                    <span class="badge bg-danger">Quản trị viên</span>
+                                {{else}}
+                                    <span class="badge bg-success">Khách hàng</span>
+                                {{/if}}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Ngày tham gia:</th>
+                            <td>{{formatDate user.date}}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

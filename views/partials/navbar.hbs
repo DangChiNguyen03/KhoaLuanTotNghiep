@@ -1,0 +1,58 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <i class="fas fa-coffee me-2"></i>YOLOBrew
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      
+      {{!-- Ẩn khi ở /users/login hoặc /users/register --}}
+      {{#unless (or (eq currentPath "/users/login") (eq currentPath "/users/register"))}}
+        {{#if user}}
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="/">Trang chủ</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/products">Sản phẩm</a>
+            </li>
+          </ul>
+          <form class="d-flex me-3" action="/products" method="GET">
+            <input class="form-control me-2" type="search" name="search" placeholder="Tìm kiếm...">
+            <button class="btn btn-light" type="submit">
+              <i class="fas fa-search"></i>
+            </button>
+          </form>
+        {{/if}}
+      {{/unless}}
+
+      <ul class="navbar-nav">
+        {{#if user}}
+          <li class="nav-item">
+            <a class="nav-link" href="/dashboard">
+              <i class="fas fa-user me-1"></i>{{user.name}}
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/users/logout">
+              <i class="fas fa-sign-out-alt me-1"></i>Đăng xuất
+            </a>
+          </li>
+        {{else}}
+          <li class="nav-item">
+            <a class="nav-link" href="/users/login">
+              <i class="fas fa-sign-in-alt me-1"></i>Đăng nhập
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/users/register">
+              <i class="fas fa-user-plus me-1"></i>Đăng ký
+            </a>
+          </li>
+        {{/if}}
+      </ul>
+    </div>
+  </div>
+</nav>

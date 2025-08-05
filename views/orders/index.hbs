@@ -1,0 +1,25 @@
+<h2>Danh sách đơn hàng</h2>
+<table class="table table-bordered table-hover">
+    <thead class="table-light">
+        <tr>
+            <th>Mã đơn</th>
+            {{#if (eq user.role 'admin')}}<th>Khách hàng</th>{{/if}}
+            <th>Ngày đặt</th>
+            <th>Tổng tiền</th>
+            <th>Trạng thái</th>
+            <th>Xem chi tiết</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{#each orders}}
+        <tr>
+            <td>{{this._id}}</td>
+            {{#if (eq ../user.role 'admin')}}<td>{{this.user.name}}<br>{{this.user.email}}</td>{{/if}}
+            <td>{{formatDate this.createdAt}}</td>
+            <td>{{this.totalPrice}} VND</td>
+            <td>{{this.status}}</td>
+            <td><a class="btn btn-sm btn-info" href="/orders/{{this._id}}">Chi tiết</a></td>
+        </tr>
+        {{/each}}
+    </tbody>
+</table>

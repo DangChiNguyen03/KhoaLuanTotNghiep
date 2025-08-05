@@ -1,0 +1,205 @@
+{{!< layouts/main}}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1 class="text-center">Danh sách sản phẩm</h1>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <form action="/products" method="GET" class="d-flex">
+                <input type="text" name="search" class="form-control me-2" placeholder="Tìm kiếm sản phẩm..." value="{{searchTerm}}">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i>
+                </button>
+            </form>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="sortSelect" onchange="updateFilters()">
+                <option value="newest" {{#if (eq currentSort 'newest')}}selected{{/if}}>Mới nhất</option>
+                <option value="price_asc" {{#if (eq currentSort 'price_asc')}}selected{{/if}}>Giá tăng dần</option>
+                <option value="price_desc" {{#if (eq currentSort 'price_desc')}}selected{{/if}}>Giá giảm dần</option>
+                <option value="name_asc" {{#if (eq currentSort 'name_asc')}}selected{{/if}}>Tên A-Z</option>
+                <option value="name_desc" {{#if (eq currentSort 'name_desc')}}selected{{/if}}>Tên Z-A</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="categorySelect" onchange="updateFilters()">
+                <option value="all" {{#if (eq currentCategory 'all')}}selected{{/if}}>Tất cả danh mục</option>
+                {{#each categories}}
+                    <option value="{{this}}" {{#if (eq ../currentCategory this)}}selected{{/if}}>{{this}}</option>
+                {{/each}}
+            </select>
+        </div>
+    </div>
+
+    {{#if products.length}}
+        <div class="row">
+            {{#each products}}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <img src="{{this.image}}" class="card-img-top" alt="{{this.name}}" style="height: 200px; object-fit: cover;">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">{{this.name}}</h5>
+                            <p class="card-text text-muted mb-2">
+                                <span class="badge bg-secondary">{{this.category}}</span>
+                            </p>
+                            <p class="card-text flex-grow-1">{{this.description}}</p>
+                            <div class="mt-auto">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="text-primary mb-0">{{formatPrice this.price}}</h5>
+                                    {{#if this.isAvailable}}
+                                        <button class="btn btn-primary add-to-cart-btn" data-bs-toggle="modal" data-bs-target="#addToCartModal" data-product-id="{{this._id}}">
+                                            <i class="fas fa-shopping-cart me-2"></i>Đặt hàng
+                                        </button>
+                                    {{else}}
+                                        <button class="btn btn-secondary" disabled>Hết hàng</button>
+                                    {{/if}}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {{/each}}
+        </div>
+    {{else}}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle me-2"></i>Không tìm thấy sản phẩm nào.
+        </div>
+    {{/if}}
+</div>
+
+<div class="modal fade" id="addToCartModal" tabindex="-1" aria-labelledby="addToCartModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addToCartModalLabel">Thêm vào giỏ hàng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addToCartForm">
+                    <input type="hidden" name="productId" id="cartProductId">
+                    <div class="mb-3">
+                        <label class="form-label">Sản phẩm:</label>
+                        <input type="text" class="form-control" id="cartProductName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Số lượng:</label>
+                        <input type="number" class="form-control" name="quantity" value="1" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mức đường:</label>
+                        <select class="form-select" name="sugarLevel">
+                            <option value="100%">100%</option>
+                            <option value="75%">75%</option>
+                            <option value="50%" selected>50%</option>
+                            <option value="25%">25%</option>
+                            <option value="0%">0%</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mức đá:</label>
+                        <select class="form-select" name="iceLevel">
+                            <option value="100%">100%</option>
+                            <option value="75%">75%</option>
+                            <option value="50%" selected>50%</option>
+                            <option value="25%">25%</option>
+                            <option value="0%">0%</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="toppingOptions">
+                        <label class="form-label">Chọn topping:</label>
+                        {{#each toppings}}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="toppings[]" value="{{this}}" id="topping-{{this}}">
+                            <label class="form-check-label" for="topping-{{this}}">{{this}}</label>
+                        </div>
+                        {{/each}}
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="submit" form="addToCartForm" class="btn btn-primary">Thêm vào giỏ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateFilters() {
+    const sort = document.getElementById('sortSelect').value;
+    const category = document.getElementById('categorySelect').value;
+    const searchParams = new URLSearchParams(window.location.search);
+    const search = searchParams.get('search') || '';
+
+    let url = '/products?';
+    if (sort !== 'newest') url += `sort=${sort}&`;
+    if (category !== 'all') url += `category=${category}&`;
+    if (search) url += `search=${search}&`;
+
+    window.location.href = url.slice(0, -1);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
+    const addToCartForm = document.getElementById('addToCartForm');
+    const toppingOptions = document.getElementById('toppingOptions');
+
+    addToCartButtons.forEach(button => {
+        button.addEventListener('click', async () => {
+            const productId = button.dataset.productId;
+            document.getElementById('cartProductId').value = productId;
+
+            try {
+                const response = await fetch(`/products/${productId}`);
+                const product = await response.json();
+                document.getElementById('cartProductName').value = product.name;
+                if (product.category === 'Topping') {
+                    toppingOptions.style.display = 'none';
+                } else {
+                    toppingOptions.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Lỗi khi lấy thông tin sản phẩm:', err);
+            }
+        });
+    });
+
+    addToCartForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(addToCartForm);
+        const productId = formData.get('productId');
+        const quantity = formData.get('quantity');
+        const sugarLevel = formData.get('sugarLevel');
+        const iceLevel = formData.get('iceLevel');
+        const toppings = formData.getAll('toppings[]');
+
+        try {
+            const response = await fetch('/cart/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    productId,
+                    quantity: parseInt(quantity),
+                    sugarLevel,
+                    iceLevel,
+                    toppings
+                })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                alert(result.message || 'Đã thêm vào giỏ hàng');
+                bootstrap.Modal.getInstance(document.getElementById('addToCartModal')).hide();
+            } else {
+                alert(result.message || 'Có lỗi khi thêm vào giỏ hàng');
+            }
+        } catch (err) {
+            console.error('Lỗi khi thêm vào giỏ hàng:', err);
+            alert('Có lỗi xảy ra khi gửi yêu cầu');
+        }
+    });
+});
+</script>

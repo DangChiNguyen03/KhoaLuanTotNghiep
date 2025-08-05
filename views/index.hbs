@@ -1,0 +1,33 @@
+{{!< layouts/main}}
+<div class="hero-section text-center py-5 mb-5">
+    <h1 class="display-4 mb-4">Chào mừng đến với Trà Sữa Shop</h1>
+    <p class="lead mb-4">Thưởng thức hương vị trà sữa tuyệt hảo của chúng tôi</p>
+    <a href="/products" class="btn btn-primary btn-lg">Xem thực đơn</a>
+</div>
+
+<section class="featured-products mb-5">
+    <h2 class="text-center mb-4">Sản phẩm nổi bật</h2>
+    {{#if products.length}}
+    <div class="row">
+        {{#each products}}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <img src="{{image}}" class="card-img-top" alt="{{name}}" style="height: 200px; object-fit: cover;">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">{{name}}</h5>
+                    <p class="card-text flex-grow-1">{{description}}</p>
+                    <p class="card-text"><strong>{{formatPrice price}}</strong></p>
+                    <div class="mt-auto">
+                        <a href="/products/{{_id}}" class="btn btn-primary">Chi tiết</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{/each}}
+    </div>
+    {{else}}
+    <div class="alert alert-info text-center">
+        <i class="fas fa-info-circle me-2"></i>Chưa có sản phẩm nào.
+    </div>
+    {{/if}}
+</section>

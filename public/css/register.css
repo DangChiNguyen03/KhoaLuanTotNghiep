@@ -1,0 +1,19 @@
+.col-md-6 {
+    padding-right: 0;
+}
+
+.col-md-6 img {
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+.row {
+    margin: 0;
+}
+
+.card {
+    padding-right: -30px;
+    border: 1px solid #ccc;
+    border-radius: 10px; /* Bo tròn góc */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Hiệu ứng bóng */
+}

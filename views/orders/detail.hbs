@@ -1,0 +1,40 @@
+<h2>Chi tiết đơn hàng</h2>
+<table class="table table-bordered">
+    <tr><th>Mã đơn</th><td>{{order._id}}</td></tr>
+    <tr><th>Khách hàng</th><td>{{order.user.name}} ({{order.user.email}})</td></tr>
+    <tr><th>Ngày đặt</th><td>{{formatDate order.createdAt}}</td></tr>
+    <tr><th>Trạng thái</th><td>{{order.status}}</td></tr>
+    <tr><th>Phương thức thanh toán</th><td>{{order.paymentMethod}}</td></tr>
+    <tr><th>Tổng tiền</th><td>{{order.totalPrice}} VND</td></tr>
+</table>
+<h4>Sản phẩm</h4>
+<table class="table table-sm table-striped">
+    <thead>
+        <tr>
+            <th>Tên sản phẩm</th>
+            <th>Số lượng</th>
+            <th>Topping</th>
+            <th>Đường</th>
+            <th>Đá</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{#each order.items}}
+        <tr>
+            <td>{{this.product.name}}</td>
+            <td>{{this.quantity}}</td>
+            <td>
+                {{#if this.toppings}}
+                    {{#each this.toppings}}
+                        {{this.name}}{{#unless @last}}, {{/unless}}
+                    {{/each}}
+                {{else}}-
+                {{/if}}
+            </td>
+            <td>{{this.sugarLevel}}</td>
+            <td>{{this.iceLevel}}</td>
+        </tr>
+        {{/each}}
+    </tbody>
+</table>
+<a href="/orders" class="btn btn-secondary">Quay lại danh sách</a>

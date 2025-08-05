@@ -1,0 +1,204 @@
+<div class="container">
+    <h1 class="mb-4">Giỏ hàng</h1>
+
+    {{#if cart.length}}
+    <div class="table-responsive mb-4">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Sản phẩm</th>
+                    <th>Tùy chọn</th>
+                    <th>Giá</th>
+                    <th>Số lượng</th>
+                    <th>Tổng</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each cart}}
+                <tr data-item-id="{{this._id}}">
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <img src="{{product.image}}" alt="{{product.name}}" style="width: 50px; height: 50px; object-fit: cover;" class="me-3">
+                            <div>
+                                <h6 class="mb-0">{{product.name}}</h6>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <small>
+                            {{#if toppings.length}}
+                            <div>Topping:</div>
+                            <ul class="list-unstyled">
+                                {{#each toppingDetails}}
+                                <li>
+                                    {{this.name}} 
+                                    <button class="btn btn-link text-danger p-0 remove-topping" data-topping-id="{{this._id}}" style="font-size: 0.8em;">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </li>
+                                {{/each}}
+                            </ul>
+                            {{/if}}
+                            {{#if sugarLevel}}
+                            <div>Đường: {{sugarLevel}}</div>
+                            {{/if}}
+                            {{#if iceLevel}}
+                            <div>Đá: {{iceLevel}}</div>
+                            {{/if}}
+                        </small>
+                    </td>
+                    <td>{{formatPrice product.price}}</td>
+                    <td>
+                        <div class="input-group" style="width: 120px;">
+                            <button class="btn btn-outline-secondary decrease-quantity" type="button">-</button>
+                            <input type="number" class="form-control text-center item-quantity" value="{{quantity}}" min="1">
+                            <button class="btn btn-outline-secondary increase-quantity" type="button">+</button>
+                        </div>
+                    </td>
+                    <td>{{formatPrice (multiply (add product.price (multiply toppings.length 10000)) quantity)}}</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm remove-item">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end"><strong>Tổng cộng:</strong></td>
+                    <td><strong>{{formatPrice totalPrice}}</strong></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-between">
+        <a href="/products" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Tiếp tục mua sắm
+        </a>
+        <a href="/cart/checkout" class="btn btn-primary">
+            Thanh toán<i class="fas fa-arrow-right ms-2"></i>
+        </a>
+    </div>
+    {{else}}
+    <div class="text-center">
+        <p class="mb-4">Giỏ hàng của bạn đang trống</p>
+        <a href="/products" class="btn btn-primary">
+            <i class="fas fa-shopping-cart me-2"></i>Mua sắm ngay
+        </a>
+    </div>
+    {{/if}}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function updateQuantity(itemId, quantity) {
+        fetch(`/cart/update/${itemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.location.reload();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Có lỗi xảy ra');
+        });
+    }
+
+    function removeItem(itemId) {
+        fetch(`/cart/remove/${itemId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.location.reload();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Có lỗi xảy ra');
+        });
+    }
+
+    function removeTopping(itemId, toppingId) {
+        fetch(`/cart/remove-topping/${itemId}/${toppingId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.location.reload();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Có lỗi xảy ra khi xóa topping');
+        });
+    }
+
+    document.querySelectorAll('.decrease-quantity').forEach(button => {
+        button.addEventListener('click', () => {
+            const row = button.closest('tr');
+            const input = row.querySelector('.item-quantity');
+            const itemId = row.dataset.itemId;
+            const newQuantity = parseInt(input.value) - 1;
+            if (newQuantity >= 1) {
+                updateQuantity(itemId, newQuantity);
+            }
+        });
+    });
+
+    document.querySelectorAll('.increase-quantity').forEach(button => {
+        button.addEventListener('click', () => {
+            const row = button.closest('tr');
+            const input = row.querySelector('.item-quantity');
+            const itemId = row.dataset.itemId;
+            const newQuantity = parseInt(input.value) + 1;
+            updateQuantity(itemId, newQuantity);
+        });
+    });
+
+    document.querySelectorAll('.item-quantity').forEach(input => {
+        input.addEventListener('change', () => {
+            const row = input.closest('tr');
+            const itemId = row.dataset.itemId;
+            const newQuantity = parseInt(input.value);
+            if (newQuantity >= 1) {
+                updateQuantity(itemId, newQuantity);
+            } else {
+                input.value = 1;
+            }
+        });
+    });
+
+    document.querySelectorAll('.remove-item').forEach(button => {
+        button.addEventListener('click', () => {
+            if (confirm('Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?')) {
+                const row = button.closest('tr');
+                const itemId = row.dataset.itemId;
+                removeItem(itemId);
+            }
+        });
+    });
+
+    document.querySelectorAll('.remove-topping').forEach(button => {
+        button.addEventListener('click', () => {
+            if (confirm('Bạn có chắc muốn xóa topping này khỏi sản phẩm?')) {
+                const row = button.closest('tr');
+                const itemId = row.dataset.itemId;
+                const toppingId = button.dataset.toppingId;
+                removeTopping(itemId, toppingId);
+            }
+        });
+    });
+});
+</script>

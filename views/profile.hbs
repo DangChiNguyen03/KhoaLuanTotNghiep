@@ -1,0 +1,12 @@
+<div class="container mt-4">
+    <h2>Thông tin cá nhân</h2>
+    <div class="row justify-content-center">
+        <div class="col-md-6 m-auto">
+            <ul class="list-group">
+                <li class="list-group-item"><b>Tên:</b> {{user.name}}</li>
+                <li class="list-group-item"><b>Email:</b> {{user.email}}</li>
+                <li class="list-group-item"><b>Loại tài khoản:</b> {{#if user.googleId}}Google{{else}}Thường{{/if}}</li>
+            </ul>
+        </div>
+    </div>
+</div>
