@@ -6,7 +6,7 @@
         <div class="col-md-6">
             <h1 class="mb-4">{{product.name}}</h1>
             <p class="lead mb-4">{{product.description}}</p>
-            <h3 class="mb-3">{{product.price}}đ</h3>
+            <h3 class="mb-3"><span id="productPrice">{{#if product.sizes.length}}{{getPriceBySize product.sizes 'M'}}{{else}}{{product.price}}{{/if}}</span>đ</h3>
 
             {{#if product.toppings.length}}
             <div class="mb-4">
@@ -48,6 +48,17 @@
             </div>
             {{/if}}
 
+            {{#if product.sizes.length}}
+            <div class="mb-4">
+                <h4>Kích cỡ</h4>
+                {{#each product.sizes}}
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input size-radio" type="radio" name="size" id="size-{{this.size}}" value="{{this.size}}" data-price="{{this.price}}" {{#if (eq this.size 'M')}}checked{{/if}}>
+                    <label class="form-check-label" for="size-{{this.size}}">{{this.size}}</label>
+                </div>
+                {{/each}}
+            </div>
+            {{/if}}
             <div class="d-flex align-items-center mb-4">
                 <div class="input-group me-3" style="width: 150px;">
                     <button class="btn btn-outline-secondary" type="button" id="decreaseQuantity">-</button>
@@ -82,6 +93,19 @@ document.addEventListener('DOMContentLoaded', function() {
         quantityInput.value = currentValue + 1;
     });
 
+    // Xử lý thay đổi giá khi chọn size
+    const priceSpan = document.getElementById('productPrice');
+    const sizeRadios = document.querySelectorAll('.size-radio');
+    if (sizeRadios && priceSpan) {
+        sizeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    priceSpan.textContent = this.getAttribute('data-price');
+                }
+            });
+        });
+    }
+
     // Xử lý thêm vào giỏ hàng
     addToCartBtn.addEventListener('click', () => {
         const productId = addToCartBtn.getAttribute('data-product-id');
@@ -89,6 +113,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const toppings = Array.from(document.querySelectorAll('.topping-checkbox:checked')).map(cb => cb.value);
         const sugarLevel = document.getElementById('sugarLevel')?.value || '50%';
         const iceLevel = document.getElementById('iceLevel')?.value || '50%';
+        let size = 'M';
+        const sizeRadio = document.querySelector('input[name="size"]:checked');
+        if (sizeRadio) size = sizeRadio.value;
 
         fetch('/cart/add', {
             method: 'POST',
@@ -100,7 +127,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 quantity,
                 toppings,
                 sugarLevel,
-                iceLevel
+                iceLevel,
+                size
             })
         })
         .then(response => response.json())

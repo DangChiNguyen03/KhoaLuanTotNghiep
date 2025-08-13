@@ -1,0 +1,353 @@
+{{#section 'title'}}{{title}}{{/section}}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-chart-bar me-2"></i>{{title}}</h2>
+                <div>
+                    <div class="btn-group" role="group">
+                        <a href="?{{#each filters}}{{@key}}={{this}}&{{/each}}exportFormat=json" class="btn btn-outline-primary">
+                            <i class="fas fa-download me-1"></i>Export JSON
+                        </a>
+                        <a href="?{{#each filters}}{{@key}}={{this}}&{{/each}}exportFormat=csv" class="btn btn-outline-success">
+                            <i class="fas fa-file-csv me-1"></i>Export CSV
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-calendar me-2"></i>Khoảng thời gian báo cáo</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="/admin/reports/customers">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Từ ngày</label>
+                                <input type="date" class="form-control" name="startDate" value="{{formatDateInput dateRange.startDate}}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Đến ngày</label>
+                                <input type="date" class="form-control" name="endDate" value="{{formatDateInput dateRange.endDate}}">
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="fas fa-sync me-1"></i>Cập nhật báo cáo
+                                </button>
+                                <a href="/admin/reports/customers" class="btn btn-outline-secondary">
+                                    <i class="fas fa-undo me-1"></i>Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{statistics.totalCustomers}}</h4>
+                                    <p class="mb-0">Tổng khách hàng</p>
+                                    <small>Trong khoảng thời gian</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-users fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{statistics.activeCustomers}}</h4>
+                                    <p class="mb-0">Khách hoạt động</p>
+                                    <small>Đã từng đăng nhập</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-user-check fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{#if statistics.avgAge}}{{statistics.avgAge}}{{else}}N/A{{/if}}</h4>
+                                    <p class="mb-0">Tuổi trung bình</p>
+                                    <small>Của khách hàng</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-birthday-cake fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{#if retention.returningCustomers}}{{retention.returningCustomers}}{{else}}0{{/if}}</h4>
+                                    <p class="mb-0">Khách quay lại</p>
+                                    <small>Đặt hàng > 1 lần</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-redo fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row mb-4">
+                <!-- Registration Trend Chart -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Xu hướng đăng ký</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="registrationChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Demographics Chart -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Phân bố độ tuổi</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="demographicsChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Customers Table -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-crown me-2"></i>Top 20 Khách hàng VIP</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Tên khách hàng</th>
+                                    <th>Email</th>
+                                    <th>Tuổi</th>
+                                    <th>Số đơn hàng</th>
+                                    <th>Tổng chi tiêu</th>
+                                    <th>Giá trị TB/đơn</th>
+                                    <th>Đơn hàng cuối</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each topCustomers}}
+                                <tr>
+                                    <td><strong>{{add @index 1}}</strong></td>
+                                    <td>
+                                        <div>
+                                            <strong>{{this.customerName}}</strong>
+                                            {{#if (gt this.totalSpent 1000000)}}
+                                                <span class="badge bg-warning ms-1">VIP</span>
+                                            {{/if}}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <small>{{this.customerEmail}}</small>
+                                            {{#if this.customerPhone}}
+                                                <br><small><i class="fas fa-phone me-1"></i>{{this.customerPhone}}</small>
+                                            {{/if}}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {{#if this.customerBirthday}}
+                                            {{calculateAge this.customerBirthday}}
+                                        {{else}}
+                                            <span class="text-muted">Chưa cập nhật</span>
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{this.totalOrders}} đơn</span>
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">{{formatCurrency this.totalSpent}}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="text-info">{{formatCurrency this.avgOrderValue}}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{formatDate this.lastOrderDate}}</small>
+                                    </td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Retention Analysis -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>Phân tích độ trung thành khách hàng</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h3 class="text-primary">{{retention.totalCustomers}}</h3>
+                                <p class="mb-0">Tổng khách hàng có đơn hàng</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h3 class="text-success">{{retention.returningCustomers}}</h3>
+                                <p class="mb-0">Khách hàng quay lại</p>
+                                <small class="text-muted">
+                                    {{#if retention.totalCustomers}}
+                                        ({{#divide retention.returningCustomers retention.totalCustomers}}{{multiply this 100}}{{/divide}}%)
+                                    {{/if}}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h3 class="text-info">{{#if retention.avgDaysBetweenOrders}}{{retention.avgDaysBetweenOrders}}{{else}}0{{/if}}</h3>
+                                <p class="mb-0">Số ngày TB giữa các đơn</p>
+                                <small class="text-muted">Của khách quay lại</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {{#if (gt retention.totalCustomers 0)}}
+                    <div class="mt-4">
+                        <div class="progress" style="height: 30px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: {{#divide retention.returningCustomers retention.totalCustomers}}{{multiply this 100}}{{/divide}}%">
+                                Khách quay lại: {{#divide retention.returningCustomers retention.totalCustomers}}{{multiply this 100}}{{/divide}}%
+                            </div>
+                            <div class="progress-bar bg-warning" role="progressbar" 
+                                 style="width: {{#divide (subtract retention.totalCustomers retention.returningCustomers) retention.totalCustomers}}{{multiply this 100}}{{/divide}}%">
+                                Khách mới: {{#divide (subtract retention.totalCustomers retention.returningCustomers) retention.totalCustomers}}{{multiply this 100}}{{/divide}}%
+                            </div>
+                        </div>
+                    </div>
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Registration Trend Chart
+const registrationData = {{{json registrationTrend}}};
+const registrationLabels = registrationData.map(item => item._id);
+const registrationValues = registrationData.map(item => item.count);
+
+const registrationCtx = document.getElementById('registrationChart').getContext('2d');
+new Chart(registrationCtx, {
+    type: 'line',
+    data: {
+        labels: registrationLabels,
+        datasets: [{
+            label: 'Số khách hàng đăng ký',
+            data: registrationValues,
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        }
+    }
+});
+
+// Demographics Chart
+const demographicsData = {{{json demographics}}};
+const ageGroups = demographicsData.map(item => item._id.ageGroup);
+const ageCounts = demographicsData.map(item => item.count);
+
+const demographicsCtx = document.getElementById('demographicsChart').getContext('2d');
+new Chart(demographicsCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ageGroups,
+        datasets: [{
+            data: ageCounts,
+            backgroundColor: [
+                '#FF6384',
+                '#36A2EB',
+                '#FFCE56',
+                '#4BC0C0',
+                '#9966FF',
+                '#FF9F40'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+</script>
+
+{{#section 'styles'}}
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.progress {
+    border-radius: 0.5rem;
+}
+
+.table th {
+    border-top: none;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+{{/section}}

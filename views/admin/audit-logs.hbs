@@ -1,0 +1,405 @@
+{{#section 'title'}}{{title}}{{/section}}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-clipboard-list me-2"></i>{{title}}</h2>
+                <div>
+                    <button class="btn btn-info me-2" onclick="loadSuspiciousActivity()">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Hoạt động đáng ngờ
+                    </button>
+                    <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cleanupModal">
+                        <i class="fas fa-broom me-1"></i>Dọn dẹp Logs
+                    </button>
+                </div>
+            </div>
+
+            <!-- Activity Summary Cards -->
+            <div class="row mb-4">
+                {{#each activitySummary}}
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{this.totalCount}}</h4>
+                                    <p class="mb-0">{{this._id}}</p>
+                                    <small>7 ngày qua</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-chart-line fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {{/each}}
+            </div>
+
+            <!-- Filters -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Bộ lọc</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="/admin/audit-logs">
+                        <div class="row">
+                            <div class="col-md-2">
+                                <label class="form-label">Người dùng</label>
+                                <select class="form-select" name="user">
+                                    <option value="">Tất cả</option>
+                                    {{#each systemUsers}}
+                                        <option value="{{this._id}}" {{#if (eq ../filters.user this._id)}}selected{{/if}}>
+                                            {{this.name}} ({{this.employeeId}})
+                                        </option>
+                                    {{/each}}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Hành động</label>
+                                <select class="form-select" name="action">
+                                    <option value="">Tất cả</option>
+                                    {{#each uniqueActions}}
+                                        <option value="{{this}}" {{#if (eq ../filters.action this)}}selected{{/if}}>{{this}}</option>
+                                    {{/each}}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Loại tài nguyên</label>
+                                <select class="form-select" name="resourceType">
+                                    <option value="">Tất cả</option>
+                                    {{#each uniqueResourceTypes}}
+                                        <option value="{{this}}" {{#if (eq ../filters.resourceType this)}}selected{{/if}}>{{this}}</option>
+                                    {{/each}}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Trạng thái</label>
+                                <select class="form-select" name="status">
+                                    <option value="">Tất cả</option>
+                                    <option value="success" {{#if (eq filters.status 'success')}}selected{{/if}}>Thành công</option>
+                                    <option value="failed" {{#if (eq filters.status 'failed')}}selected{{/if}}>Thất bại</option>
+                                    <option value="error" {{#if (eq filters.status 'error')}}selected{{/if}}>Lỗi</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Từ ngày</label>
+                                <input type="date" class="form-control" name="startDate" value="{{filters.startDate}}">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Đến ngày</label>
+                                <input type="date" class="form-control" name="endDate" value="{{filters.endDate}}">
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="fas fa-search me-1"></i>Lọc
+                                </button>
+                                <a href="/admin/audit-logs" class="btn btn-outline-secondary">
+                                    <i class="fas fa-undo me-1"></i>Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Audit Logs Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-table me-2"></i>Nhật ký Hoạt động ({{totalLogs}} bản ghi)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Thời gian</th>
+                                    <th>Người dùng</th>
+                                    <th>Hành động</th>
+                                    <th>Tài nguyên</th>
+                                    <th>IP Address</th>
+                                    <th>Trạng thái</th>
+                                    <th>Chi tiết</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each auditLogs}}
+                                <tr>
+                                    <td>
+                                        <small>{{formatDateTime this.timestamp}}</small>
+                                    </td>
+                                    <td>
+                                        {{#if this.user}}
+                                            <div>
+                                                <strong>{{this.user.name}}</strong><br>
+                                                <small class="text-muted">{{this.user.employeeId}} - {{this.user.role}}</small>
+                                            </div>
+                                        {{else}}
+                                            <span class="text-muted">System</span>
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {{#if (eq this.action 'login')}}bg-success
+                                            {{else if (eq this.action 'logout')}}bg-info
+                                            {{else if (eq this.action 'login_failed')}}bg-danger
+                                            {{else if (eq this.action 'user_created')}}bg-primary
+                                            {{else if (eq this.action 'user_updated')}}bg-warning
+                                            {{else if (eq this.action 'user_deleted')}}bg-danger
+                                            {{else if (eq this.action 'password_reset')}}bg-warning
+                                            {{else}}bg-secondary{{/if}}">
+                                            {{this.action}}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong>{{this.resourceType}}</strong>
+                                            {{#if this.resourceId}}
+                                                <br><small class="text-muted">ID: {{substring this.resourceId 0 8}}...</small>
+                                            {{/if}}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <small>{{this.ipAddress}}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {{#if (eq this.status 'success')}}bg-success
+                                            {{else if (eq this.status 'failed')}}bg-warning
+                                            {{else}}bg-danger{{/if}}">
+                                            {{#if (eq this.status 'success')}}Thành công
+                                            {{else if (eq this.status 'failed')}}Thất bại
+                                            {{else}}Lỗi{{/if}}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-info" 
+                                                onclick="showDetails('{{this._id}}')" title="Xem chi tiết">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {{#if totalPages}}
+                    <nav aria-label="Audit logs pagination">
+                        <ul class="pagination justify-content-center">
+                            {{#if prevPage}}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{prevPage}}&{{#each filters}}{{@key}}={{this}}&{{/each}}">Trước</a>
+                                </li>
+                            {{/if}}
+                            
+                            <li class="page-item active">
+                                <span class="page-link">{{currentPage}} / {{totalPages}}</span>
+                            </li>
+                            
+                            {{#if nextPage}}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{nextPage}}&{{#each filters}}{{@key}}={{this}}&{{/each}}">Sau</a>
+                                </li>
+                            {{/if}}
+                        </ul>
+                    </nav>
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chi tiết Hoạt động</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailsContent">
+                <!-- Content will be loaded by JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cleanup Modal -->
+<div class="modal fade" id="cleanupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Dọn dẹp Audit Logs</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/admin/audit-logs/cleanup">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Thao tác này sẽ xóa vĩnh viễn các bản ghi audit log cũ. Không thể khôi phục!
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Xóa các bản ghi cũ hơn (ngày)</label>
+                        <input type="number" class="form-control" name="days" value="90" min="30" max="365" required>
+                        <div class="form-text">Khuyến nghị: giữ lại ít nhất 90 ngày để audit</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-warning">Xóa Logs Cũ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Suspicious Activity Modal -->
+<div class="modal fade" id="suspiciousModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Hoạt động Đáng ngờ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="suspiciousContent">
+                <!-- Content will be loaded by JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show details function
+function showDetails(logId) {
+    // Find the log data from the current page
+    const logData = {{{json auditLogs}}}.find(log => log._id === logId);
+    
+    if (logData) {
+        const content = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Thông tin cơ bản</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>ID:</strong></td><td>${logData._id}</td></tr>
+                        <tr><td><strong>Thời gian:</strong></td><td>${new Date(logData.timestamp).toLocaleString('vi-VN')}</td></tr>
+                        <tr><td><strong>Người dùng:</strong></td><td>${logData.user ? logData.user.name + ' (' + logData.user.employeeId + ')' : 'System'}</td></tr>
+                        <tr><td><strong>Hành động:</strong></td><td>${logData.action}</td></tr>
+                        <tr><td><strong>Tài nguyên:</strong></td><td>${logData.resourceType}</td></tr>
+                        <tr><td><strong>Resource ID:</strong></td><td>${logData.resourceId || 'N/A'}</td></tr>
+                        <tr><td><strong>IP Address:</strong></td><td>${logData.ipAddress}</td></tr>
+                        <tr><td><strong>User Agent:</strong></td><td>${logData.userAgent || 'N/A'}</td></tr>
+                        <tr><td><strong>Method:</strong></td><td>${logData.method || 'N/A'}</td></tr>
+                        <tr><td><strong>Endpoint:</strong></td><td>${logData.endpoint || 'N/A'}</td></tr>
+                        <tr><td><strong>Trạng thái:</strong></td><td>${logData.status}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Chi tiết</h6>
+                    <pre class="bg-light p-2 rounded" style="max-height: 200px; overflow-y: auto;">${JSON.stringify(logData.details, null, 2)}</pre>
+                    
+                    ${logData.oldValues && Object.keys(logData.oldValues).length > 0 ? `
+                        <h6 class="mt-3">Giá trị cũ</h6>
+                        <pre class="bg-light p-2 rounded" style="max-height: 150px; overflow-y: auto;">${JSON.stringify(logData.oldValues, null, 2)}</pre>
+                    ` : ''}
+                    
+                    ${logData.newValues && Object.keys(logData.newValues).length > 0 ? `
+                        <h6 class="mt-3">Giá trị mới</h6>
+                        <pre class="bg-light p-2 rounded" style="max-height: 150px; overflow-y: auto;">${JSON.stringify(logData.newValues, null, 2)}</pre>
+                    ` : ''}
+                    
+                    ${logData.errorMessage ? `
+                        <h6 class="mt-3 text-danger">Thông báo lỗi</h6>
+                        <div class="alert alert-danger">${logData.errorMessage}</div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('detailsContent').innerHTML = content;
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        modal.show();
+    }
+}
+
+// Load suspicious activity
+async function loadSuspiciousActivity() {
+    try {
+        const response = await fetch('/admin/api/suspicious-activity?timeWindow=60&threshold=10');
+        const data = await response.json();
+        
+        if (data.success) {
+            let content = `
+                <div class="alert alert-info">
+                    <strong>Tiêu chí phát hiện:</strong> ${data.detectionCriteria.threshold} trong vòng ${data.detectionCriteria.timeWindow}
+                </div>
+            `;
+            
+            if (data.suspiciousActivity.length === 0) {
+                content += '<div class="alert alert-success">Không phát hiện hoạt động đáng ngờ nào!</div>';
+            } else {
+                content += `
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Người dùng</th>
+                                    <th>IP Address</th>
+                                    <th>Số hành động</th>
+                                    <th>Thời gian</th>
+                                    <th>Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                data.suspiciousActivity.forEach(activity => {
+                    content += `
+                        <tr>
+                            <td>
+                                <strong>${activity.user.name}</strong><br>
+                                <small>${activity.user.employeeId} - ${activity.user.role}</small>
+                            </td>
+                            <td>${activity.ipAddress}</td>
+                            <td><span class="badge bg-danger">${activity.actionCount}</span></td>
+                            <td>
+                                <small>
+                                    ${new Date(activity.firstAction).toLocaleString('vi-VN')}<br>
+                                    đến<br>
+                                    ${new Date(activity.lastAction).toLocaleString('vi-VN')}<br>
+                                    (${Math.round(activity.timeSpan)} phút)
+                                </small>
+                            </td>
+                            <td>
+                                <small>${activity.actions.join(', ')}</small>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                content += '</tbody></table></div>';
+            }
+            
+            document.getElementById('suspiciousContent').innerHTML = content;
+            const modal = new bootstrap.Modal(document.getElementById('suspiciousModal'));
+            modal.show();
+        } else {
+            alert('Có lỗi khi tải hoạt động đáng ngờ');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Có lỗi khi tải hoạt động đáng ngờ');
+    }
+}
+</script>

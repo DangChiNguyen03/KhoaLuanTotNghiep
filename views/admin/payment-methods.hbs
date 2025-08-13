@@ -1,0 +1,267 @@
+{{#section 'title'}}Quản lý phương thức thanh toán{{/section}}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-credit-card me-2"></i>Quản lý phương thức thanh toán</h2>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/admin/dashboard">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Phương thức thanh toán</li>
+                    </ol>
+                </nav>
+            </div>
+
+            {{> messages}}
+
+            <!-- Nút thêm phương thức thanh toán -->
+            <div class="mb-4">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPaymentMethodModal">
+                    <i class="fas fa-plus"></i> Thêm phương thức thanh toán
+                </button>
+                {{#unless paymentMethods.length}}
+                <button type="button" class="btn btn-success ms-2" onclick="initDefaultPaymentMethods()">
+                    <i class="fas fa-magic"></i> Khởi tạo dữ liệu mặc định
+                </button>
+                {{/unless}}
+            </div>
+
+            <!-- Danh sách phương thức thanh toán -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Danh sách phương thức thanh toán</h5>
+                </div>
+                <div class="card-body">
+                    {{#if paymentMethods.length}}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Tên</th>
+                                    <th>Mã</th>
+                                    <th>Mô tả</th>
+                                    <th>Thông tin ngân hàng</th>
+                                    <th>Phí</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each paymentMethods}}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {{#if this.icon}}
+                                            <img src="{{this.icon}}" alt="{{this.name}}" class="me-2" style="width: 24px; height: 24px; object-fit: contain;">
+                                            {{else}}
+                                            <i class="fas fa-credit-card me-2"></i>
+                                            {{/if}}
+                                            <strong>{{this.name}}</strong>
+                                        </div>
+                                    </td>
+                                    <td><code>{{this.code}}</code></td>
+                                    <td>{{this.description}}</td>
+                                    <td>
+                                        {{#if this.config.bankName}}
+                                        <div>
+                                            <strong>{{this.config.bankName}}</strong><br>
+                                            <small>STK: {{this.config.accountNumber}}</small><br>
+                                            <small>Tên TK: {{this.config.accountName}}</small>
+                                        </div>
+                                        {{else}}
+                                        <span class="text-muted">Chưa cấu hình</span>
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        {{#if this.config.fee}}
+                                        {{formatPrice this.config.fee}}{{#if (eq this.config.feeType 'percent')}}%{{/if}}
+                                        {{else}}
+                                        <span class="text-muted">Miễn phí</span>
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        <span class="badge {{#if this.isActive}}bg-success{{else}}bg-secondary{{/if}}">
+                                            {{#if this.isActive}}Hoạt động{{else}}Tạm dừng{{/if}}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="editPaymentMethod('{{this._id}}')" title="Chỉnh sửa">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deletePaymentMethod('{{this._id}}', '{{this.name}}')" title="Xóa">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                        </table>
+                    </div>
+                    {{else}}
+                    <div class="text-center py-5">
+                        <i class="fas fa-credit-card fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Chưa có phương thức thanh toán nào</h5>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPaymentMethodModal">
+                            Thêm phương thức đầu tiên
+                        </button>
+                    </div>
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal thêm phương thức thanh toán -->
+<div class="modal fade" id="addPaymentMethodModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm phương thức thanh toán</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/admin/payment-methods">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Tên phương thức <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Mã phương thức <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="code" required>
+                                <div class="form-text">Ví dụ: cash, bank, momo, zalopay</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Mô tả</label>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">URL Icon</label>
+                        <input type="url" class="form-control" name="icon" placeholder="https://example.com/icon.png">
+                    </div>
+                    
+                    <hr>
+                    <h6>Thông tin ngân hàng (nếu có)</h6>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Tên ngân hàng</label>
+                                <input type="text" class="form-control" name="bankName">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Số tài khoản</label>
+                                <input type="text" class="form-control" name="accountNumber">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Tên tài khoản</label>
+                                <input type="text" class="form-control" name="accountName">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Phí giao dịch</label>
+                                <input type="number" class="form-control" name="fee" min="0" step="0.01" value="0">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Loại phí</label>
+                                <select class="form-select" name="feeType">
+                                    <option value="fixed">Cố định (VNĐ)</option>
+                                    <option value="percent">Phần trăm (%)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="isActive" id="isActive" checked>
+                        <label class="form-check-label" for="isActive">
+                            Kích hoạt phương thức thanh toán
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Thêm phương thức</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal sửa phương thức thanh toán -->
+<div class="modal fade" id="editPaymentMethodModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chỉnh sửa phương thức thanh toán</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="editPaymentMethodForm">
+                <input type="hidden" name="_method" value="PUT">
+                <div class="modal-body">
+                    <!-- Form content will be populated by JavaScript -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Cập nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function editPaymentMethod(id) {
+    // TODO: Implement edit functionality
+    alert('Chức năng chỉnh sửa sẽ được triển khai sau');
+}
+
+function deletePaymentMethod(id, name) {
+    if (confirm(`Bạn có chắc chắn muốn xóa phương thức thanh toán "${name}"?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/payment-methods/${id}`;
+        
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        
+        form.appendChild(methodInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function initDefaultPaymentMethods() {
+    if (confirm('Bạn có chắc chắn muốn khởi tạo các phương thức thanh toán mặc định? Điều này sẽ thêm Tiền mặt, Chuyển khoản ngân hàng và các ví điện tử.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/init-payment-methods';
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>

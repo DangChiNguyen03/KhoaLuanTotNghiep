@@ -1,6 +1,20 @@
 const mongoose = require('mongoose');
 
 const ProductSchema = new mongoose.Schema({
+    sizes: {
+        type: [{
+            size: { type: String, required: true },
+            price: { type: Number, required: true }
+        }],
+        default: function() {
+            if (this.category === 'Topping') return [];
+            return [
+                { size: 'S', price: null },
+                { size: 'M', price: null },
+                { size: 'L', price: null }
+            ];
+        }
+    },
     name: {
         type: String,
         required: true
@@ -9,10 +23,7 @@ const ProductSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    price: {
-        type: Number,
-        required: true
-    },
+
     image: {
         type: String,
         required: true
@@ -43,5 +54,6 @@ const ProductSchema = new mongoose.Schema({
 });
 
 const Product = mongoose.model('Product', ProductSchema);
+
 
 module.exports = Product;

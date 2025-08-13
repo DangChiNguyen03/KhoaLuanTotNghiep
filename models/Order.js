@@ -22,7 +22,11 @@ const orderSchema = new mongoose.Schema({
             ref: 'Product'
         }],
         sugarLevel: String,
-        iceLevel: String
+        iceLevel: String,
+        size: {
+            type: String,
+            default: 'M'
+        }
     }],
     totalPrice: {
         type: Number,
@@ -30,13 +34,26 @@ const orderSchema = new mongoose.Schema({
     },
     paymentMethod: {
         type: String,
-        enum: ['cash', 'bank'],
+        enum: ['cash', 'bank', 'momo', 'zalopay', 'vnpay'],
         required: true
     },
+    // Trạng thái đơn hàng
     status: {
         type: String,
-        enum: ['pending', 'completed'],
-        default: 'completed'
+        enum: ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'],
+        default: 'pending'
+    },
+    // Trạng thái thanh toán
+    paymentStatus: {
+        type: String,
+        enum: ['pending', 'paid', 'failed', 'refunded'],
+        default: 'pending'
+    },
+    // Reference đến Payment record
+    payment: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Payment',
+        default: null
     },
     createdAt: {
         type: Date,

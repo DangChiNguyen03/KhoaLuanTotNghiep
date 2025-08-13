@@ -48,7 +48,25 @@
                             <p class="card-text flex-grow-1">{{this.description}}</p>
                             <div class="mt-auto">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <h5 class="text-primary mb-0">{{formatPrice this.price}}</h5>
+                                    {{#if (eq this.category 'Topping')}}
+                                        {{#if this.price}}
+                                            <h5 class="text-primary mb-0">{{formatPrice this.price}}</h5>
+                                        {{else if this.sizes.0.price}}
+                                            <h5 class="text-primary mb-0">{{formatPrice this.sizes.0.price}}</h5>
+                                        {{else}}
+                                            <h5 class="text-primary mb-0">Liên hệ</h5>
+                                        {{/if}}
+                                    {{else}}
+                                        {{#if this.sizes.length}}
+                                            <div class="text-primary">
+                                                {{#each this.sizes}}
+                                                    <small class="d-block">{{this.size}}: {{formatPrice this.price}}</small>
+                                                {{/each}}
+                                            </div>
+                                        {{else}}
+                                            <h5 class="text-primary mb-0">Liên hệ</h5>
+                                        {{/if}}
+                                    {{/if}}
                                     {{#if this.isAvailable}}
                                         <button class="btn btn-primary add-to-cart-btn" data-bs-toggle="modal" data-bs-target="#addToCartModal" data-product-id="{{this._id}}">
                                             <i class="fas fa-shopping-cart me-2"></i>Đặt hàng
@@ -83,6 +101,12 @@
                     <div class="mb-3">
                         <label class="form-label">Sản phẩm:</label>
                         <input type="text" class="form-control" id="cartProductName" readonly>
+                    </div>
+                    <div class="mb-3" id="sizeOptions" style="display: none;">
+                        <label class="form-label">Chọn size:</label>
+                        <select class="form-select" name="size" id="cartProductSize">
+                            <!-- Options sẽ được thêm bằng JavaScript -->
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Số lượng:</label>
@@ -156,10 +180,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 const response = await fetch(`/products/${productId}`);
                 const product = await response.json();
                 document.getElementById('cartProductName').value = product.name;
+                
+                const sizeOptions = document.getElementById('sizeOptions');
+                const sizeSelect = document.getElementById('cartProductSize');
+                
                 if (product.category === 'Topping') {
                     toppingOptions.style.display = 'none';
+                    sizeOptions.style.display = 'none';
                 } else {
                     toppingOptions.style.display = 'block';
+                    sizeOptions.style.display = 'block';
+                    
+                    // Thêm các option size
+                    sizeSelect.innerHTML = '';
+                    if (product.sizes && product.sizes.length > 0) {
+                        product.sizes.forEach(sizeObj => {
+                            const option = document.createElement('option');
+                            option.value = sizeObj.size;
+                            option.textContent = `${sizeObj.size} - ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(sizeObj.price)}`;
+                            sizeSelect.appendChild(option);
+                        });
+                    }
                 }
             } catch (err) {
                 console.error('Lỗi khi lấy thông tin sản phẩm:', err);
@@ -176,6 +217,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const iceLevel = formData.get('iceLevel');
         const toppings = formData.getAll('toppings[]');
 
+        const size = formData.get('size'); // Lấy size được chọn
+        
         try {
             const response = await fetch('/cart/add', {
                 method: 'POST',
@@ -183,6 +226,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({
                     productId,
                     quantity: parseInt(quantity),
+                    size, // Thêm size vào request
                     sugarLevel,
                     iceLevel,
                     toppings

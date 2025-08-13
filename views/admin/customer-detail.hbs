@@ -1,0 +1,211 @@
+{{#section 'title'}}Chi tiết khách hàng - {{customer.name}}{{/section}}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Chi tiết khách hàng</h2>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="/admin/customers">Khách hàng</a></li>
+                        <li class="breadcrumb-item active">{{customer.name}}</li>
+                    </ol>
+                </nav>
+            </div>
+
+            {{> messages}}
+
+            <div class="row">
+                <!-- Thông tin khách hàng -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-user"></i> Thông tin khách hàng
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="customerForm" method="POST" action="/admin/customers/{{customer._id}}">
+                                <input type="hidden" name="_method" value="PUT">
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Tên khách hàng</label>
+                                    <input type="text" class="form-control" name="name" value="{{customer.name}}" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" name="email" value="{{customer.email}}" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Số điện thoại</label>
+                                    <input type="text" class="form-control" name="phone" value="{{customer.phone}}">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Địa chỉ</label>
+                                    <textarea class="form-control" name="address" rows="3">{{customer.address}}</textarea>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Ngày sinh</label>
+                                    <input type="date" class="form-control" value="{{formatDateInput customer.birthday}}" readonly>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Ngày đăng ký</label>
+                                    <input type="text" class="form-control" value="{{formatDate customer.date}}" readonly>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Cập nhật thông tin
+                                    </button>
+                                    <a href="/admin/customers" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left"></i> Quay lại danh sách
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thống kê và lịch sử đơn hàng -->
+                <div class="col-md-8">
+                    <!-- Thống kê khách hàng -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{customerStats.totalOrders}}</h4>
+                                    <p class="mb-0">Tổng đơn hàng</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{formatPrice customerStats.totalSpent}}</h4>
+                                    <p class="mb-0">Tổng chi tiêu</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{formatPrice customerStats.averageOrderValue}}</h4>
+                                    <p class="mb-0">Giá trị TB/đơn</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h6 class="mb-0">{{#if customerStats.lastOrderDate}}{{formatDate customerStats.lastOrderDate}}{{else}}Chưa có{{/if}}</h6>
+                                    <p class="mb-0">Đơn hàng cuối</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lịch sử đơn hàng -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-shopping-cart"></i> Lịch sử đơn hàng
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {{#if orders.length}}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Mã đơn</th>
+                                            <th>Ngày đặt</th>
+                                            <th>Sản phẩm</th>
+                                            <th>Tổng tiền</th>
+                                            <th>Thanh toán</th>
+                                            <th>Trạng thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {{#each orders}}
+                                        <tr>
+                                            <td>
+                                                <code>#{{substring this._id 0 8}}</code>
+                                            </td>
+                                            <td>{{formatDateTime this.createdAt}}</td>
+                                            <td>
+                                                <div class="order-items">
+                                                    {{#each this.items}}
+                                                    <div class="d-flex align-items-center mb-2">
+                                                        {{#if this.product.image}}
+                                                        <img src="/{{this.product.image}}" alt="{{this.product.name}}" class="me-2" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">
+                                                        {{/if}}
+                                                        <div>
+                                                            <strong>{{this.product.name}}</strong>
+                                                            {{#if this.size}} ({{this.size}}){{/if}}
+                                                            <br>
+                                                            <small class="text-muted">SL: {{this.quantity}}</small>
+                                                            {{#if this.toppings.length}}
+                                                            <br>
+                                                            <small class="text-info">
+                                                                Topping: {{#each this.toppings}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}
+                                                            </small>
+                                                            {{/if}}
+                                                        </div>
+                                                    </div>
+                                                    {{/each}}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <strong class="text-success">{{formatPrice this.totalPrice}}</strong>
+                                            </td>
+                                            <td>
+                                                <span class="badge {{#if (eq this.paymentMethod 'cash')}}bg-success{{else}}bg-info{{/if}}">
+                                                    {{#if (eq this.paymentMethod 'cash')}}Tiền mặt{{else}}Chuyển khoản{{/if}}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge {{#if (eq this.status 'completed')}}bg-success{{else}}bg-warning{{/if}}">
+                                                    {{#if (eq this.status 'completed')}}Hoàn thành{{else}}Đang xử lý{{/if}}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {{/each}}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {{else}}
+                            <div class="text-center py-5">
+                                <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">Khách hàng chưa có đơn hàng nào</h5>
+                            </div>
+                            {{/if}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.order-items {
+    max-height: 200px;
+    overflow-y: auto;
+}
+.order-items::-webkit-scrollbar {
+    width: 4px;
+}
+.order-items::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+.order-items::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 2px;
+}
+</style>

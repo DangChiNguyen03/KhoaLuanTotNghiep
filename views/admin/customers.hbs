@@ -1,0 +1,250 @@
+{{#section 'title'}}Quản lý khách hàng{{/section}}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Quản lý khách hàng</h2>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Khách hàng</li>
+                    </ol>
+                </nav>
+            </div>
+
+            {{> messages}}
+
+            <!-- Thống kê tổng quan -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title">{{stats.total}}</h4>
+                                    <p class="card-text">Tổng người dùng</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-users fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title">{{stats.newThisMonth}}</h4>
+                                    <p class="card-text">Mới tháng này</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-user-plus fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Thống kê phân loại vai trò -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">{{stats.customers}}</h5>
+                            <p class="card-text">Khách hàng</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">{{stats.admins}}</h5>
+                            <p class="card-text">Admin</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">{{stats.managers}}</h5>
+                            <p class="card-text">Manager</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">{{stats.staff}}</h5>
+                            <p class="card-text">Staff</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tìm kiếm -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" action="/admin/customers" class="row g-3">
+                        <div class="col-md-8">
+                            <input type="text" class="form-control" name="search" placeholder="Tìm kiếm theo tên, email, số điện thoại..." value="{{search}}">
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search"></i> Tìm kiếm
+                            </button>
+                            {{#if search}}
+                            <a href="/admin/customers" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Xóa bộ lọc
+                            </a>
+                            {{/if}}
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Danh sách khách hàng -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Danh sách khách hàng</h5>
+                </div>
+                <div class="card-body">
+                    {{#if customers.length}}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Tên người dùng</th>
+                                    <th>Email</th>
+                                    <th>Địa chỉ</th>
+                                    <th>Số điện thoại</th>
+                                    <th>Vai trò</th>
+                                    <th>Ngày sinh</th>
+                                    <th>Ngày đăng ký</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each customers}}
+                                <tr>
+                                    <td>
+                                        <strong>{{this.name}}</strong>
+                                    </td>
+                                    <td>{{this.email}}</td>
+                                    <td>{{#if this.address}}{{this.address}}{{else}}<span class="text-muted">Chưa cập nhật</span>{{/if}}</td>
+                                    <td>{{#if this.phone}}{{this.phone}}{{else}}<span class="text-muted">Chưa cập nhật</span>{{/if}}</td>
+                                    <td>
+                                         {{#if (eq this.role 'admin')}}
+                                             <span class="badge bg-danger">Admin</span>
+                                         {{else if (eq this.role 'manager')}}
+                                             <span class="badge bg-warning">Manager</span>
+                                         {{else if (eq this.role 'staff')}}
+                                             <span class="badge bg-success">Staff</span>
+                                         {{else}}
+                                             <span class="badge bg-info">Khách hàng</span>
+                                         {{/if}}
+                                     </td>
+                                     <td>{{#if this.birthday}}{{formatDate this.birthday}}{{else}}<span class="text-muted">Chưa cập nhật</span>{{/if}}</td>
+                                     <td>{{#if this.birthday}}{{calculateAge this.birthday}}{{else}}<span class="text-muted">Chưa cập nhật</span>{{/if}}</td>
+                                    <td>{{formatDate this.date}}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="/admin/customers/{{this._id}}" class="btn btn-sm btn-info" title="Xem chi tiết">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('{{this._id}}', '{{this.name}}')" title="Xóa khách hàng">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {{#if (gt totalPages 1)}}
+                    <nav aria-label="Customer pagination">
+                        <ul class="pagination justify-content-center">
+                            {{#if (gt currentPage 1)}}
+                            <li class="page-item">
+                                <a class="page-link" href="/admin/customers?page={{subtract currentPage 1}}{{#if search}}&search={{search}}{{/if}}">Trước</a>
+                            </li>
+                            {{/if}}
+                            
+                            {{#each (range 1 totalPages)}}
+                            <li class="page-item {{#if (eq this ../currentPage)}}active{{/if}}">
+                                <a class="page-link" href="/admin/customers?page={{this}}{{#if ../search}}&search={{../search}}{{/if}}">{{this}}</a>
+                            </li>
+                            {{/each}}
+                            
+                            {{#if (lt currentPage totalPages)}}
+                            <li class="page-item">
+                                <a class="page-link" href="/admin/customers?page={{add currentPage 1}}{{#if search}}&search={{search}}{{/if}}">Sau</a>
+                            </li>
+                            {{/if}}
+                        </ul>
+                    </nav>
+                    {{/if}}
+
+                    {{else}}
+                    <div class="text-center py-5">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">
+                            {{#if search}}
+                            Không tìm thấy khách hàng nào với từ khóa "{{search}}"
+                            {{else}}
+                            Chưa có khách hàng nào
+                            {{/if}}
+                        </h5>
+                        {{#if search}}
+                        <a href="/admin/customers" class="btn btn-primary">Xem tất cả khách hàng</a>
+                        {{/if}}
+                    </div>
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal xác nhận xóa -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Xác nhận xóa khách hàng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Bạn có chắc chắn muốn xóa khách hàng <strong id="customerName"></strong>?</p>
+                <p class="text-warning"><small>Lưu ý: Nếu khách hàng có đơn hàng, tài khoản sẽ được vô hiệu hóa thay vì xóa hoàn toàn.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <button type="submit" class="btn btn-danger">Xóa</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(customerId, customerName) {
+    document.getElementById('customerName').textContent = customerName;
+    // Thử route POST backup thay vì method override
+    document.getElementById('deleteForm').action = `/admin/customers/${customerId}/delete`;
+    // Xóa input _method để dùng POST thuần
+    const methodInput = document.querySelector('#deleteForm input[name="_method"]');
+    if (methodInput) {
+        methodInput.remove();
+    }
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>

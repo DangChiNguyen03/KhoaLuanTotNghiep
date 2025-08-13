@@ -1,0 +1,372 @@
+{{#section 'title'}}Quản lý đơn hàng{{/section}}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-shopping-cart me-2"></i>Quản lý đơn hàng</h2>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/admin/dashboard">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Đơn hàng</li>
+                    </ol>
+                </nav>
+            </div>
+
+            {{> messages}}
+
+            <!-- Thống kê trạng thái -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title">{{statusStats.all}}</h4>
+                                    <p class="card-text">Tổng đơn hàng</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-shopping-cart fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title">{{statusStats.pending}}</h4>
+                                    <p class="card-text">Đang xử lý</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-clock fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title">{{statusStats.completed}}</h4>
+                                    <p class="card-text">Hoàn thành</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bộ lọc -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" action="/admin/orders" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Trạng thái</label>
+                            <select class="form-select" name="status">
+                                <option value="">Tất cả trạng thái</option>
+                                <option value="pending" {{#if (eq status 'pending')}}selected{{/if}}>Chờ xác nhận</option>
+                                <option value="confirmed" {{#if (eq status 'confirmed')}}selected{{/if}}>Đã xác nhận</option>
+                                <option value="preparing" {{#if (eq status 'preparing')}}selected{{/if}}>Đang chuẩn bị</option>
+                                <option value="ready" {{#if (eq status 'ready')}}selected{{/if}}>Sẵn sàng</option>
+                                <option value="completed" {{#if (eq status 'completed')}}selected{{/if}}>Hoàn thành</option>
+                                <option value="cancelled" {{#if (eq status 'cancelled')}}selected{{/if}}>Đã hủy</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tìm kiếm</label>
+                            <input type="text" class="form-control" name="search" placeholder="Tìm kiếm theo mã đơn, tên khách hàng..." value="{{search}}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Lọc
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    {{#if (or status search)}}
+                    <div class="mt-2">
+                        <a href="/admin/orders" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-times"></i> Xóa bộ lọc
+                        </a>
+                    </div>
+                    {{/if}}
+                </div>
+            </div>
+
+            <!-- Danh sách đơn hàng -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Danh sách đơn hàng</h5>
+                </div>
+                <div class="card-body">
+                    {{#if orders.length}}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Mã đơn</th>
+                                    <th>Khách hàng</th>
+                                    <th>Sản phẩm</th>
+                                    <th>Tổng tiền</th>
+                                    <th>Thanh toán</th>
+                                    <th>Trạng thái</th>
+                                    <th>Ngày đặt</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each orders}}
+                                <tr>
+                                    <td>
+                                        <code>#{{substring this._id 0 8}}</code>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong>{{this.user.name}}</strong>
+                                            <br>
+                                            <small class="text-muted">{{this.user.email}}</small>
+                                            {{#if this.user.phone}}
+                                            <br>
+                                            <small class="text-muted">{{this.user.phone}}</small>
+                                            {{/if}}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="order-items">
+                                            {{#each this.items}}
+                                            <div class="mb-2">
+                                                <div class="d-flex align-items-center">
+                                                    {{#if this.product.image}}
+                                                    <img src="/{{this.product.image}}" alt="{{this.product.name}}" class="me-2" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+                                                    <div class="me-2 d-none" style="width: 30px; height: 30px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center;">
+                                                        <i class="fas fa-image text-muted" style="font-size: 12px;"></i>
+                                                    </div>
+                                                    {{else}}
+                                                    <div class="me-2" style="width: 30px; height: 30px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center;">
+                                                        <i class="fas fa-image text-muted" style="font-size: 12px;"></i>
+                                                    </div>
+                                                    {{/if}}
+                                                    <div>
+                                                        <strong>{{this.product.name}}</strong>
+                                                        {{#if this.size}} ({{this.size}}){{/if}}
+                                                        <br>
+                                                        <small class="text-muted">SL: {{this.quantity}}</small>
+                                                        {{#if this.toppings.length}}
+                                                        <br>
+                                                        <small class="text-info">
+                                                            +{{#each this.toppings}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}
+                                                        </small>
+                                                        {{/if}}
+                                                        {{#if this.sugarLevel}}
+                                                        <br>
+                                                        <small class="text-muted">Đường: {{this.sugarLevel}}</small>
+                                                        {{/if}}
+                                                        {{#if this.iceLevel}}
+                                                        <small class="text-muted">| Đá: {{this.iceLevel}}</small>
+                                                        {{/if}}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {{/each}}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">{{formatPrice this.totalPrice}}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{#if (eq this.paymentMethod 'cash')}}bg-success{{else}}bg-info{{/if}}">
+                                            {{#if (eq this.paymentMethod 'cash')}}Tiền mặt{{else}}Chuyển khoản{{/if}}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {{#if (eq this.status 'pending')}}bg-secondary
+                                            {{else if (eq this.status 'confirmed')}}bg-info
+                                            {{else if (eq this.status 'preparing')}}bg-warning
+                                            {{else if (eq this.status 'ready')}}bg-primary
+                                            {{else if (eq this.status 'completed')}}bg-success
+                                            {{else if (eq this.status 'cancelled')}}bg-danger
+                                            {{else}}bg-secondary{{/if}}">
+                                            {{#if (eq this.status 'pending')}}Chờ xác nhận
+                                            {{else if (eq this.status 'confirmed')}}Đã xác nhận
+                                            {{else if (eq this.status 'preparing')}}Đang chuẩn bị
+                                            {{else if (eq this.status 'ready')}}Sẵn sàng
+                                            {{else if (eq this.status 'completed')}}Hoàn thành
+                                            {{else if (eq this.status 'cancelled')}}Đã hủy
+                                            {{else}}{{this.status}}{{/if}}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{formatDateTime this.createdAt}}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            {{#if (eq this.status 'pending')}}
+                                            <button type="button" class="btn btn-sm btn-info" onclick="updateOrderStatus('{{this._id}}', 'confirmed')" title="Xác nhận đơn hàng">
+                                                <i class="fas fa-check-circle"></i>
+                                            </button>
+                                            {{else if (eq this.status 'confirmed')}}
+                                            <button type="button" class="btn btn-sm btn-warning" onclick="updateOrderStatus('{{this._id}}', 'preparing')" title="Bắt đầu chuẩn bị">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                            {{else if (eq this.status 'preparing')}}
+                                            <button type="button" class="btn btn-sm btn-primary" onclick="updateOrderStatus('{{this._id}}', 'ready')" title="Sẵn sàng giao hàng">
+                                                <i class="fas fa-box"></i>
+                                            </button>
+                                            {{else if (eq this.status 'ready')}}
+                                            <button type="button" class="btn btn-sm btn-success" onclick="updateOrderStatus('{{this._id}}', 'completed')" title="Hoàn thành đơn hàng">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                            {{/if}}
+                                            
+                                            {{#unless (eq this.status 'cancelled')}}
+                                             {{#unless (eq this.status 'completed')}}
+                                             <button type="button" class="btn btn-sm btn-danger" onclick="updateOrderStatus('{{this._id}}', 'cancelled')" title="Hủy đơn hàng">
+                                                 <i class="fas fa-times"></i>
+                                             </button>
+                                             {{/unless}}
+                                             {{/unless}}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <small>Tổng số đơn hàng: {{orders.length}}</small>
+                                            </div>
+                                            <div>
+                                                <small>Tổng doanh thu: {{formatPrice totalRevenue}}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {{#if (gt totalPages 1)}}
+                    <nav aria-label="Order pagination">
+                        <ul class="pagination justify-content-center">
+                            {{#if (gt currentPage 1)}}
+                            <li class="page-item">
+                                <a class="page-link" href="/admin/orders?page={{subtract currentPage 1}}{{#if status}}&status={{status}}{{/if}}{{#if search}}&search={{search}}{{/if}}">Trước</a>
+                            </li>
+                            {{/if}}
+                            
+                            {{#each (range 1 totalPages)}}
+                            <li class="page-item {{#if (eq this ../currentPage)}}active{{/if}}">
+                                <a class="page-link" href="/admin/orders?page={{this}}{{#if ../status}}&status={{../status}}{{/if}}{{#if ../search}}&search={{../search}}{{/if}}">{{this}}</a>
+                            </li>
+                            {{/each}}
+                            
+                            {{#if (lt currentPage totalPages)}}
+                            <li class="page-item">
+                                <a class="page-link" href="/admin/orders?page={{add currentPage 1}}{{#if status}}&status={{status}}{{/if}}{{#if search}}&search={{search}}{{/if}}">Sau</a>
+                            </li>
+                            {{/if}}
+                        </ul>
+                    </nav>
+                    {{/if}}
+
+                    {{else}}
+                    <div class="text-center py-5">
+                        <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">
+                            {{#if (or status search)}}
+                            Không tìm thấy đơn hàng nào
+                            {{else}}
+                            Chưa có đơn hàng nào
+                            {{/if}}
+                        </h5>
+                        {{#if (or status search)}}
+                        <a href="/admin/orders" class="btn btn-primary">Xem tất cả đơn hàng</a>
+                        {{/if}}
+                    </div>
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal chi tiết đơn hàng -->
+<div class="modal fade" id="orderDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chi tiết đơn hàng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="orderDetailContent">
+                <!-- Nội dung sẽ được load bằng JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.order-items {
+    max-height: 200px;
+    overflow-y: auto;
+}
+.order-items::-webkit-scrollbar {
+    width: 4px;
+}
+.order-items::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+.order-items::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 2px;
+}
+</style>
+
+<script>
+function updateOrderStatus(orderId, status) {
+    const statusMessages = {
+        'confirmed': 'xác nhận đơn hàng',
+        'preparing': 'bắt đầu chuẩn bị đơn hàng',
+        'ready': 'đánh dấu đơn hàng sẵn sàng',
+        'completed': 'hoàn thành đơn hàng',
+        'cancelled': 'hủy đơn hàng',
+        'pending': 'chuyển về trạng thái chờ xử lý'
+    };
+    
+    const statusText = statusMessages[status] || status;
+    
+    if (confirm(`Bạn có chắc chắn muốn ${statusText}?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/orders/${orderId}/status`;
+        
+        const statusInput = document.createElement('input');
+        statusInput.type = 'hidden';
+        statusInput.name = 'status';
+        statusInput.value = status;
+        
+        form.appendChild(statusInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function viewOrderDetail(orderId) {
+    // Tạm thời hiển thị thông báo, có thể mở rộng sau
+    alert('Chi tiết đơn hàng #' + orderId.substring(0, 8));
+}
+</script>

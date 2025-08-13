@@ -3,14 +3,71 @@ const router = express.Router();
 const { ensureAuthenticated } = require('../config/auth');
 const Product = require('../models/Product');
 const User = require('../models/User');
+const Order = require('../models/Order');
 
 // Home Page
 router.get('/', async (req, res) => {
     try {
-        const products = await Product.find().limit(6);
+        const date = new Date();
+        const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+        const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+        const bestsellingProducts = await Order.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: firstDayOfMonth, $lte: lastDayOfMonth }
+                }
+            },
+            {
+                $unwind: '$items'
+            },
+            {
+                $group: {
+                    _id: '$items.product',
+                    totalQuantity: { $sum: '$items.quantity' }
+                }
+            },
+            {
+                $sort: { totalQuantity: -1 }
+            },
+            {
+                $limit: 5
+            },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: '_id',
+                    foreignField: '_id',
+                    as: 'product'
+                }
+            },
+            {
+                $unwind: '$product'
+            }
+        ]);
+
+        let products = bestsellingProducts.map(product => product.product);
+        
+        // Nếu không có sản phẩm bán chạy trong tháng, lấy 5 sản phẩm ngẫu nhiên
+        if (products.length === 0) {
+            products = await Product.find({ category: { $ne: 'Topping' } }).limit(5);
+        }
+        
+        // Nếu vẫn không đủ 5 sản phẩm, lấy thêm sản phẩm khác
+        if (products.length < 5) {
+            const existingIds = products.map(p => p._id);
+            const additionalProducts = await Product.find({ 
+                _id: { $nin: existingIds },
+                category: { $ne: 'Topping' }
+            }).limit(5 - products.length);
+            products = [...products, ...additionalProducts];
+        }
+
         res.render('index', {
             user: req.user,
-            products
+            products,
+            featuredTitle: products.length > 0 && bestsellingProducts.length > 0 ? 
+                'Sản phẩm bán chạy nhất tháng này' : 'Sản phẩm nổi bật'
         });
     } catch (err) {
         console.error('Home page error:', err);

@@ -1,0 +1,530 @@
+{{#section 'title'}}{{title}}{{/section}}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-credit-card me-2"></i>{{title}}</h2>
+                <div>
+                    <div class="btn-group" role="group">
+                        <a href="?{{#each filters}}{{@key}}={{this}}&{{/each}}exportFormat=json" class="btn btn-outline-primary">
+                            <i class="fas fa-download me-1"></i>Export JSON
+                        </a>
+                        <a href="?{{#each filters}}{{@key}}={{this}}&{{/each}}exportFormat=csv" class="btn btn-outline-success">
+                            <i class="fas fa-file-csv me-1"></i>Export CSV
+                        </a>
+                        <form method="POST" action="/admin/cleanup-payments" class="d-inline">
+                            <button type="submit" class="btn btn-warning" onclick="return confirm('Bạn có chắc muốn cập nhật tất cả payment cũ thành trạng thái hoàn thành?')">
+                                <i class="fas fa-sync me-1"></i>Sửa Payment Cũ
+                            </button>
+                        </form>
+                        <form method="POST" action="/admin/fix/payment-status" class="d-inline">
+                            <button type="submit" class="btn btn-info" onclick="return confirm('Bạn có chắc muốn đồng bộ trạng thái Payment với Order? Điều này sẽ cập nhật các payment thất bại thành thành công nếu đơn hàng đã hoàn thành.')">
+                                <i class="fas fa-sync-alt me-1"></i>Đồng bộ Payment
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Bộ lọc báo cáo</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="/admin/reports/payments">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label class="form-label">Từ ngày</label>
+                                <input type="date" class="form-control" name="startDate" value="{{formatDateInput dateRange.startDate}}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Đến ngày</label>
+                                <input type="date" class="form-control" name="endDate" value="{{formatDateInput dateRange.endDate}}">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Phương thức</label>
+                                <select class="form-select" name="paymentMethod">
+                                    <option value="">Tất cả</option>
+                                    {{#each allPaymentMethods}}
+                                        <option value="{{this.name}}" {{#if (eq ../filters.paymentMethod this.name)}}selected{{/if}}>
+                                            {{this.displayName}}
+                                        </option>
+                                    {{/each}}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Trạng thái</label>
+                                <select class="form-select" name="status">
+                                    <option value="">Tất cả</option>
+                                    <option value="paid" {{#if (eq filters.status 'paid')}}selected{{/if}}>Thành công</option>
+                                    <option value="pending" {{#if (eq filters.status 'pending')}}selected{{/if}}>Đang xử lý</option>
+                                    <option value="failed" {{#if (eq filters.status 'failed')}}selected{{/if}}>Thất bại</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="fas fa-sync me-1"></i>Cập nhật
+                                </button>
+                                <a href="/admin/reports/payments" class="btn btn-outline-secondary">
+                                    <i class="fas fa-undo"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{statistics.totalPayments}}</h4>
+                                    <p class="mb-0">Tổng giao dịch</p>
+                                    <small>Trong khoảng thời gian</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-receipt fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{formatCurrency statistics.totalAmount}}</h4>
+                                    <p class="mb-0">Tổng doanh thu</p>
+                                    <small>Từ thanh toán</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-money-bill-wave fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{formatCurrency statistics.avgAmount}}</h4>
+                                    <p class="mb-0">Giá trị TB/giao dịch</p>
+                                    <small>Trung bình</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-calculator fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{#if statistics.totalPayments}}{{#divide statistics.successfulPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%{{else}}0%{{/if}}</h4>
+                                    <p class="mb-0">Tỷ lệ thành công</p>
+                                    <small>{{statistics.successfulPayments}}/{{statistics.totalPayments}}</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Status Breakdown -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Trạng thái thanh toán</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <h3 class="text-success">{{statistics.successfulPayments}}</h3>
+                                    <small>Thành công</small>
+                                </div>
+                                <div class="col-4">
+                                    <h3 class="text-warning">{{statistics.pendingPayments}}</h3>
+                                    <small>Đang xử lý</small>
+                                </div>
+                                <div class="col-4">
+                                    <h3 class="text-danger">{{statistics.failedPayments}}</h3>
+                                    <small>Thất bại</small>
+                                </div>
+                            </div>
+                            {{#if (gt statistics.totalPayments 0)}}
+                            <div class="progress mt-3" style="height: 25px;">
+                                <div class="progress-bar bg-success" style="width: {{#divide statistics.successfulPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%">
+                                    {{#divide statistics.successfulPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%
+                                </div>
+                                <div class="progress-bar bg-warning" style="width: {{#divide statistics.pendingPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%">
+                                    {{#divide statistics.pendingPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%
+                                </div>
+                                <div class="progress-bar bg-danger" style="width: {{#divide statistics.failedPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%">
+                                    {{#divide statistics.failedPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%
+                                </div>
+                            </div>
+                            {{/if}}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Processing Time Stats -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Thời gian xử lý</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <h5 class="text-success">{{#if processingTime.avgProcessingTime}}{{processingTime.avgProcessingTime}}s{{else}}N/A{{/if}}</h5>
+                                    <small>Trung bình</small>
+                                </div>
+                                <div class="col-4">
+                                    <h5 class="text-info">{{#if processingTime.minProcessingTime}}{{processingTime.minProcessingTime}}s{{else}}N/A{{/if}}</h5>
+                                    <small>Nhanh nhất</small>
+                                </div>
+                                <div class="col-4">
+                                    <h5 class="text-warning">{{#if processingTime.maxProcessingTime}}{{processingTime.maxProcessingTime}}s{{else}}N/A{{/if}}</h5>
+                                    <small>Chậm nhất</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Payment Methods Stats -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-credit-card me-2"></i>Phương thức phổ biến</h5>
+                        </div>
+                        <div class="card-body">
+                            {{#each paymentMethodStats}}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div>
+                                    <strong>{{this._id}}</strong>
+                                    <br><small>{{this.count}} giao dịch</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="text-success">{{formatCurrency this.totalAmount}}</div>
+                                    <small class="text-muted">{{#multiply this.successRate 100}}{{this}}{{/multiply}}% thành công</small>
+                                </div>
+                            </div>
+                            {{#unless @last}}<hr>{{/unless}}
+                            {{/each}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row mb-4">
+                <!-- Payment Trends Chart -->
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Xu hướng thanh toán theo ngày</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="paymentTrendsChart" height="100"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Hourly Revenue Chart -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Doanh thu theo giờ</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="hourlyRevenueChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Transactions Table -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Top 20 Giao dịch lớn nhất</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Ngày</th>
+                                    <th>Khách hàng</th>
+                                    <th>Đơn hàng</th>
+                                    <th>Số tiền</th>
+                                    <th>Phương thức</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thời gian xử lý</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each topTransactions}}
+                                <tr>
+                                    <td><strong>{{add @index 1}}</strong></td>
+                                    <td>
+                                        <small>{{formatDate this.createdAt}}</small>
+                                    </td>
+                                    <td>
+                                        {{#if this.user}}
+                                            <div>
+                                                <strong>{{this.user.name}}</strong>
+                                                <br><small class="text-muted">{{this.user.email}}</small>
+                                            </div>
+                                        {{else}}
+                                            <span class="text-muted">Guest</span>
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        {{#if this.order}}
+                                            <span class="badge bg-info">{{this.order.orderNumber}}</span>
+                                        {{else}}
+                                            <span class="text-muted">N/A</span>
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">{{formatCurrency this.amount}}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{this.paymentMethod}}</span>
+                                    </td>
+                                    <td>
+                                         <span class="badge 
+                                             {{#if (eq this.displayStatus 'Thành công')}}bg-success
+                                             {{else if (eq this.status 'pending')}}bg-warning
+                                             {{else}}bg-danger{{/if}}">
+                                             {{#if this.displayStatus}}{{this.displayStatus}}
+                                             {{else if (eq this.status 'paid')}}Thành công
+                                             {{else if (eq this.status 'pending')}}Đang xử lý
+                                             {{else}}Thất bại{{/if}}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            {{#if this.processedAt}}
+                                                {{#divide (subtract this.processedAt this.createdAt) 1000}}{{this}}s{{/divide}}
+                                            {{else}}
+                                                N/A
+                                            {{/if}}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Failed Payments Analysis -->
+            {{#if failedPayments}}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Giao dịch thất bại gần đây</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Thời gian</th>
+                                    <th>Khách hàng</th>
+                                    <th>Đơn hàng</th>
+                                    <th>Số tiền</th>
+                                    <th>Phương thức</th>
+                                    <th>Lý do</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each failedPayments}}
+                                <tr>
+                                    <td><small>{{formatDateTime this.createdAt}}</small></td>
+                                    <td>
+                                        {{#if this.user}}
+                                            {{this.user.name}}
+                                            <br><small class="text-muted">{{this.user.email}}</small>
+                                        {{else}}
+                                            <span class="text-muted">Guest</span>
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        {{#if this.order}}
+                                            {{this.order.orderNumber}}
+                                        {{else}}
+                                            N/A
+                                        {{/if}}
+                                    </td>
+                                    <td>{{formatCurrency this.amount}}</td>
+                                    <td>{{this.paymentMethod}}</td>
+                                    <td>
+                                        <small class="text-danger">{{#if this.failureReason}}{{this.failureReason}}{{else}}Unknown error{{/if}}</small>
+                                    </td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {{/if}}
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Payment Trends Chart
+const paymentTrendsData = {{{json paymentTrends}}};
+const trendLabels = [...new Set(paymentTrendsData.map(item => item._id.date))].sort();
+const successData = trendLabels.map(date => {
+    const item = paymentTrendsData.find(d => d._id.date === date && d._id.status === 'completed');
+    return item ? item.amount : 0;
+});
+const failedData = trendLabels.map(date => {
+    const item = paymentTrendsData.find(d => d._id.date === date && d._id.status === 'failed');
+    return item ? item.count : 0;
+});
+
+const trendsCtx = document.getElementById('paymentTrendsChart').getContext('2d');
+new Chart(trendsCtx, {
+    type: 'line',
+    data: {
+        labels: trendLabels,
+        datasets: [{
+            label: 'Doanh thu (VND)',
+            data: successData,
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            yAxisID: 'y'
+        }, {
+            label: 'Giao dịch thất bại',
+            data: failedData,
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            yAxisID: 'y1'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                beginAtZero: true
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                beginAtZero: true,
+                grid: {
+                    drawOnChartArea: false,
+                }
+            }
+        }
+    }
+});
+
+// Hourly Revenue Chart
+const hourlyData = {{{json hourlyRevenue}}};
+const hourLabels = Array.from({length: 24}, (_, i) => i + ':00');
+const hourlyRevenue = hourLabels.map((_, hour) => {
+    const item = hourlyData.find(d => d._id === hour);
+    return item ? item.revenue : 0;
+});
+
+const hourlyCtx = document.getElementById('hourlyRevenueChart').getContext('2d');
+new Chart(hourlyCtx, {
+    type: 'bar',
+    data: {
+        labels: hourLabels,
+        datasets: [{
+            label: 'Doanh thu',
+            data: hourlyRevenue,
+            backgroundColor: 'rgba(54, 162, 235, 0.8)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+
+{{#section 'styles'}}
+<style>
+.progress {
+    border-radius: 0.5rem;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table th {
+    border-top: none;
+}
+</style>
+
+<script>
+// Function to fix payment status synchronization
+async function fixPaymentStatus() {
+    if (!confirm('Bạn có chắc muốn đồng bộ trạng thái Payment với Order? Điều này sẽ cập nhật các payment "thất bại" thành "thành công" nếu đơn hàng đã hoàn thành.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/admin/fix/payment-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Lỗi: ' + result.error);
+        } else {
+            alert(result.message + '\n\nVui lòng refresh trang để xem kết quả!');
+            window.location.reload();
+        }
+    } catch (error) {
+        alert('Có lỗi xảy ra: ' + error.message);
+    }
+}
+</script>
+{{/section}}

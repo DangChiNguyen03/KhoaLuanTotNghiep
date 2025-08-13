@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { isAuthenticated } = require('../middleware/auth');
-const User = require('../models/User');
-const Product = require('../models/Product');
-const Order = require('../models/Order'); // Thêm model Order
 const mongoose = require('mongoose');
+const Product = require('../models/Product');
+const User = require('../models/User');
+const Order = require('../models/Order');
+const Payment = require('../models/Payment');
+const { isAuthenticated } = require('../middleware/auth'); 
 
 // Xem giỏ hàng
 router.get('/', isAuthenticated, async (req, res) => {
@@ -24,7 +25,7 @@ router.get('/', isAuthenticated, async (req, res) => {
                 toppingDetails = await Product.find({ 
                     _id: { $in: validToppingIds }, 
                     category: 'Topping' 
-                }).select('name price');
+                }).select('name price sizes');
             }
 
             return {
@@ -36,8 +37,31 @@ router.get('/', isAuthenticated, async (req, res) => {
         let totalPrice = 0;
         for (const item of cartItems) {
             if (item.product) {
-                let itemTotal = item.product.price;
-                itemTotal += item.toppings.length * 10000;
+                // Tính giá sản phẩm chính - luôn lấy giá mới nhất từ database
+                let itemTotal = 0;
+                if (item.product.category === 'Topping') {
+                    // Topping: lấy từ price hoặc sizes[0].price
+                    itemTotal = item.product.price || (item.product.sizes && item.product.sizes[0] ? item.product.sizes[0].price : 0);
+                } else {
+                    // Sản phẩm thường: lấy giá theo size đã chọn
+                    if (item.product.sizes && Array.isArray(item.product.sizes) && item.size) {
+                        const sizeObj = item.product.sizes.find(s => s.size === item.size);
+                        itemTotal = sizeObj ? sizeObj.price : 0;
+                    } else {
+                        itemTotal = item.product.price || 0;
+                    }
+                }
+                
+                // Tính giá topping dựa trên giá thực tế
+                let toppingTotal = 0;
+                if (item.toppingDetails && item.toppingDetails.length > 0) {
+                    toppingTotal = item.toppingDetails.reduce((sum, topping) => {
+                        const toppingPrice = topping.price || (topping.sizes && topping.sizes[0] ? topping.sizes[0].price : 0);
+                        return sum + toppingPrice;
+                    }, 0);
+                }
+                
+                itemTotal += toppingTotal;
                 itemTotal *= item.quantity;
                 totalPrice += itemTotal;
             }
@@ -57,7 +81,7 @@ router.get('/', isAuthenticated, async (req, res) => {
 // Thêm vào giỏ hàng
 router.post('/add', isAuthenticated, async (req, res) => {
     try {
-        const { productId, quantity = 1, toppings = [], sugarLevel = '50%', iceLevel = '50%' } = req.body;
+        const { productId, quantity = 1, toppings = [], sugarLevel = '50%', iceLevel = '50%', size = 'M' } = req.body;
 
         console.log('Adding product to cart:', { productId, quantity, toppings, sugarLevel, iceLevel });
 
@@ -86,11 +110,19 @@ router.post('/add', isAuthenticated, async (req, res) => {
         }).select('_id');
         const toppingIds = toppingProducts.map(t => t._id);
 
+        
+        // Lấy giá đúng theo size
+        let price = 0;
+        if (product.sizes && Array.isArray(product.sizes)) {
+            const sizeObj = product.sizes.find(s => s.size === size);
+            if (sizeObj) price = sizeObj.price;
+        }
         const cartItemIndex = user.cart.findIndex(item =>
             item.product.toString() === productId &&
             JSON.stringify(item.toppings.sort()) === JSON.stringify(toppingIds.sort()) &&
             item.sugarLevel === sugarLevel &&
-            item.iceLevel === iceLevel
+            item.iceLevel === iceLevel &&
+            item.size === size
         );
 
         if (cartItemIndex > -1) {
@@ -101,11 +133,17 @@ router.post('/add', isAuthenticated, async (req, res) => {
                 quantity: qty,
                 toppings: toppingIds,
                 sugarLevel: sugarLevel,
-                iceLevel: iceLevel
+                iceLevel: iceLevel,
+                size: size,
+                price: price
             });
         }
 
-        await user.save();
+        // Sử dụng updateOne để tránh validation issues với admin accounts
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { cart: user.cart } }
+        );
         console.log('Updated cart:', user.cart);
 
         res.json({ message: 'Thêm vào giỏ hàng thành công', cart: user.cart });
@@ -209,7 +247,7 @@ router.get('/checkout', isAuthenticated, async (req, res) => {
                 toppingDetails = await Product.find({ 
                     _id: { $in: validToppingIds }, 
                     category: 'Topping' 
-                }).select('name price');
+                }).select('name price sizes');
             }
 
             return {
@@ -221,8 +259,31 @@ router.get('/checkout', isAuthenticated, async (req, res) => {
         let totalPrice = 0;
         for (const item of cartItems) {
             if (item.product) {
-                let itemTotal = item.product.price;
-                itemTotal += item.toppings.length * 10000;
+                // Tính giá sản phẩm chính - luôn lấy giá mới nhất từ database
+                let itemTotal = 0;
+                if (item.product.category === 'Topping') {
+                    // Topping: lấy từ price hoặc sizes[0].price
+                    itemTotal = item.product.price || (item.product.sizes && item.product.sizes[0] ? item.product.sizes[0].price : 0);
+                } else {
+                    // Sản phẩm thường: lấy giá theo size đã chọn
+                    if (item.product.sizes && Array.isArray(item.product.sizes) && item.size) {
+                        const sizeObj = item.product.sizes.find(s => s.size === item.size);
+                        itemTotal = sizeObj ? sizeObj.price : 0;
+                    } else {
+                        itemTotal = item.product.price || 0;
+                    }
+                }
+                
+                // Tính giá topping dựa trên giá thực tế
+                let toppingTotal = 0;
+                if (item.toppingDetails && item.toppingDetails.length > 0) {
+                    toppingTotal = item.toppingDetails.reduce((sum, topping) => {
+                        const toppingPrice = topping.price || (topping.sizes && topping.sizes[0] ? topping.sizes[0].price : 0);
+                        return sum + toppingPrice;
+                    }, 0);
+                }
+                
+                itemTotal += toppingTotal;
                 itemTotal *= item.quantity;
                 totalPrice += itemTotal;
             }
@@ -257,7 +318,7 @@ router.post('/checkout', isAuthenticated, async (req, res) => {
                 toppingDetails = await Product.find({ 
                     _id: { $in: validToppingIds }, 
                     category: 'Topping' 
-                }).select('name price');
+                }).select('name price sizes');
             }
             return {
                 ...item.toObject(),
@@ -268,8 +329,33 @@ router.post('/checkout', isAuthenticated, async (req, res) => {
         let totalPrice = 0;
         for (const item of cartItems) {
             if (item.product) {
-                let itemTotal = item.product.price;
-                itemTotal += item.toppings.length * 10000;
+                // Tính giá sản phẩm chính - luôn lấy giá mới nhất từ database
+                let itemTotal = 0;
+                if (item.product.category === 'Topping') {
+                    // Topping: lấy từ price hoặc sizes[0].price
+                    itemTotal = item.product.price || (item.product.sizes && item.product.sizes[0] ? item.product.sizes[0].price : 0);
+                } else {
+                    // Sản phẩm thường: lấy giá theo size đã chọn
+                    if (item.product.sizes && Array.isArray(item.product.sizes) && item.size) {
+                        const sizeObj = item.product.sizes.find(s => s.size === item.size);
+                        itemTotal = sizeObj ? sizeObj.price : 0;
+                    } else {
+                        // Fallback cho sản phẩm cũ không có sizes
+                        itemTotal = 0;
+                        console.warn(`Sản phẩm ${item.product.name} không có giá cho size ${item.size}`);
+                    }
+                }
+                
+                // Tính giá topping dựa trên giá thực tế
+                let toppingTotal = 0;
+                if (item.toppingDetails && item.toppingDetails.length > 0) {
+                    toppingTotal = item.toppingDetails.reduce((sum, topping) => {
+                        const toppingPrice = topping.price || (topping.sizes && topping.sizes[0] ? topping.sizes[0].price : 0);
+                        return sum + toppingPrice;
+                    }, 0);
+                }
+                
+                itemTotal += toppingTotal;
                 itemTotal *= item.quantity;
                 totalPrice += itemTotal;
             }
@@ -297,16 +383,36 @@ router.post('/checkout', isAuthenticated, async (req, res) => {
                 quantity: item.quantity,
                 toppings: item.toppings,
                 sugarLevel: item.sugarLevel,
-                iceLevel: item.iceLevel
+                iceLevel: item.iceLevel,
+                size: item.size
             })),
             totalPrice: totalPrice,
-            paymentMethod: paymentMethod
+            paymentMethod: paymentMethod,
+            status: 'pending',
+            paymentStatus: paymentMethod === 'cash' ? 'paid' : 'pending'
         });
         await order.save();
 
-        // Xóa giỏ hàng sau khi thanh toán
-        user.cart = [];
-        await user.save();
+        // Tạo Payment record
+        const payment = new Payment({
+            order: order._id,
+            user: user._id,
+            amount: totalPrice,
+            paymentMethod: paymentMethod,
+            status: 'paid', // Sử dụng enum value đúng từ Payment model
+            paidAt: new Date()
+        });
+        await payment.save();
+
+        // Cập nhật Order với Payment reference
+        order.payment = payment._id;
+        await order.save();
+
+        // Xóa giỏ hàng sau khi thanh toán - sử dụng updateOne để tránh validation
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { cart: [] } }
+        );
 
         req.flash('success_msg', 'Thanh toán thành công! Cảm ơn bạn đã mua hàng.');
         res.redirect('/');

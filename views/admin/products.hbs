@@ -4,7 +4,7 @@
         {{messages.success_msg}}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
-{{/if}}
+    {{/if}}
     <h1 class="mb-4">Quản lý sản phẩm</h1>
     
     <!-- Add Product Button -->
@@ -28,18 +28,26 @@
             <tbody>
                 {{#each products}}
                 <tr>
-                    <td><img src="{{image}}" alt="{{name}}" style="width: 100px; height: 100px; object-fit: contain; background: #fff;"></td>
-                    <td>{{name}}</td>
-                    <td>{{price}}đ</td>
-                    <td>{{category}}</td>
-                    <td>{{toppings.join ', '}}</td>
+                    <td><img src="{{this.image}}" alt="{{this.name}}" style="width: 100px; height: 100px; object-fit: contain; background: #fff;"></td>
+                    <td>{{this.name}}</td>
                     <td>
-                        <button class="btn btn-sm btn-info edit-product" data-id="{{_id}}" data-bs-toggle="modal" data-bs-target="#editProductModal">
+                        {{#if (eq this.category 'Topping')}}
+                            {{#if this.price}}{{this.price}}đ{{else}}{{this.sizes.[0].price}}đ{{/if}}
+                        {{else}}
+                            S: {{this.sizes.[0].price}}đ | M: {{this.sizes.[1].price}}đ | L: {{this.sizes.[2].price}}đ
+                        {{/if}}
+                    </td>
+                    <td>{{this.category}}</td>
+                    <td>{{#if this.toppings}}{{this.toppings.join ", "}}{{/if}}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info edit-product" data-id="{{this._id}}" data-bs-toggle="modal" data-bs-target="#editProductModal">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-sm btn-danger delete-product" data-id="{{_id}}">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <form action="/admin/products/delete/{{this._id}}?_method=DELETE" method="POST" style="display: inline;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa sản phẩm này?');">
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {{/each}}
@@ -67,12 +75,8 @@
                         <textarea class="form-control" name="description" required></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Giá</label>
-                        <input type="number" class="form-control" name="price" required>
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label">Danh mục</label>
-                        <select class="form-select" name="category" id="categorySelect" required>
+                        <select class="form-select" name="category" id="addCategorySelect" required>
                             <option value="Trà sữa">Trà sữa</option>
                             <option value="Trà trái cây">Trà trái cây</option>
                             <option value="Đá xay">Đá xay</option>
@@ -81,19 +85,54 @@
                             <option value="Nước ép">Nước ép</option>
                         </select>
                     </div>
+                    
+                    <div class="mb-3" id="addPriceSection" style="display: none;">
+                        <label class="form-label">Giá sản phẩm</label>
+                        <input type="number" class="form-control" name="price" min="0" placeholder="Giá sản phẩm">
+                    </div>
+
+                    <div class="mb-3" id="addSizeSection">
+                        <label class="form-label">Giá theo kích cỡ</label>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <input type="number" class="form-control" name="sizePriceS" placeholder="Giá S">
+                            </div>
+                            <div class="col-4">
+                                <input type="number" class="form-control" name="sizePriceM" placeholder="Giá M">
+                            </div>
+                            <div class="col-4">
+                                <input type="number" class="form-control" name="sizePriceL" placeholder="Giá L">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="addToppingSection">
+                        <label class="form-label">Topping có sẵn</label>
+                        <div class="row">
+                            {{#each allToppings}}
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="toppings[]" value="{{this._id}}" id="add_topping_{{this._id}}">
+                                    <label class="form-check-label" for="add_topping_{{this._id}}">{{this.name}}</label>
+                                </div>
+                            </div>
+                            {{/each}}
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Hình ảnh</label>
-                        <input type="file" class="form-control" name="image" accept="image/*" required>
+                        <input type="file" class="form-control" name="image" accept="image/*">
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="submit" form="addProductForm" class="btn btn-primary">Thêm sản phẩm</button>
+                <button type="submit" form="addProductForm" class="btn btn-primary">Thêm</button>
             </div>
         </div>
     </div>
 </div>
+
 
 <!-- Edit Product Modal -->
 <div class="modal fade" id="editProductModal" tabindex="-1">
@@ -104,7 +143,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="editProductForm" enctype="multipart/form-data">
+                <form id="editProductForm" enctype="multipart/form-data" method="POST">
                     <input type="hidden" name="productId">
                     <div class="mb-3">
                         <label class="form-label">Tên sản phẩm</label>
@@ -115,12 +154,8 @@
                         <textarea class="form-control" name="description" required></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Giá</label>
-                        <input type="number" class="form-control" name="price" required>
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label">Danh mục</label>
-                        <select class="form-select" name="category" required>
+                        <select class="form-select" name="category" id="editCategorySelect" required>
                             <option value="Trà sữa">Trà sữa</option>
                             <option value="Trà trái cây">Trà trái cây</option>
                             <option value="Đá xay">Đá xay</option>
@@ -129,14 +164,39 @@
                             <option value="Nước ép">Nước ép</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Topping</label>
-                        {{#each toppings}}
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="toppings[]" value="{{this}}" id="edit-topping-{{this}}">
-                            <label class="form-check-label" for="edit-topping-{{this}}">{{this}}</label>
+
+                    <div class="mb-3" id="editPriceSection" style="display: none;">
+                        <label class="form-label">Giá sản phẩm</label>
+                        <input type="number" class="form-control" name="price" min="0" placeholder="Giá sản phẩm">
+                    </div>
+
+                    <div class="mb-3" id="editSizeSection">
+                        <label class="form-label">Giá theo kích cỡ</label>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <input type="number" class="form-control" name="sizePriceS" id="editSizePriceS" placeholder="Giá S">
+                            </div>
+                            <div class="col-4">
+                                <input type="number" class="form-control" name="sizePriceM" id="editSizePriceM" placeholder="Giá M">
+                            </div>
+                            <div class="col-4">
+                                <input type="number" class="form-control" name="sizePriceL" id="editSizePriceL" placeholder="Giá L">
+                            </div>
                         </div>
-                        {{/each}}
+                    </div>
+
+                    <div class="mb-3" id="editToppingSection">
+                        <label class="form-label">Topping có sẵn</label>
+                        <div class="row">
+                            {{#each allToppings}}
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="toppings[]" value="{{this._id}}" id="edit_topping_{{this._id}}">
+                                    <label class="form-check-label" for="edit_topping_{{this._id}}">{{this.name}}</label>
+                                </div>
+                            </div>
+                            {{/each}}
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Hình ảnh mới (không bắt buộc)</label>
@@ -153,100 +213,94 @@
 </div>
 
 <script>
-    console.log("Quản lý sản phẩm ADMIN đã load!");
 document.addEventListener('DOMContentLoaded', function() {
-    const categorySelect = document.getElementById('categorySelect');
-    const toppingSection = document.getElementById('toppingSection');
+    
+    // --- LOGIC FOR ADD PRODUCT MODAL ---
+    const addCategorySelect = document.getElementById('addCategorySelect');
+    const addPriceSection = document.getElementById('addPriceSection');
+    const addSizeSection = document.getElementById('addSizeSection');
+    const addToppingSection = document.getElementById('addToppingSection');
 
-    function toggleToppingSection() {
-        if (!categorySelect || !toppingSection) return;
-        if (categorySelect.value === 'Topping') {
-            toppingSection.style.display = 'none';
-        } else {
-            toppingSection.style.display = 'block';
-        }
+    function toggleAddFormFields() {
+        const isTopping = addCategorySelect.value === 'Topping';
+        addPriceSection.style.display = isTopping ? 'block' : 'none';
+        addSizeSection.style.display = isTopping ? 'none' : 'block';
+        addToppingSection.style.display = isTopping ? 'none' : 'block';
     }
+    addCategorySelect.addEventListener('change', toggleAddFormFields);
+    toggleAddFormFields(); // Initial check
 
-    if (categorySelect && toppingSection) {
-        categorySelect.addEventListener('change', toggleToppingSection);
-        toggleToppingSection();
+    // --- LOGIC FOR EDIT PRODUCT MODAL ---
+    const editModal = document.getElementById('editProductModal');
+    const editForm = document.getElementById('editProductForm');
+    const editCategorySelect = document.getElementById('editCategorySelect');
+    const editPriceSection = document.getElementById('editPriceSection');
+    const editSizeSection = document.getElementById('editSizeSection');
+    const editToppingSection = document.getElementById('editToppingSection');
+
+    function toggleEditFormFields() {
+        const isTopping = editCategorySelect.value === 'Topping';
+        editPriceSection.style.display = isTopping ? 'block' : 'none';
+        editSizeSection.style.display = isTopping ? 'none' : 'block';
+        editToppingSection.style.display = isTopping ? 'none' : 'block';
     }
+    editCategorySelect.addEventListener('change', toggleEditFormFields);
 
-    const editButtons = document.querySelectorAll('.edit-product');
-    editButtons.forEach(button => {
-        button.addEventListener('click', async () => {
-            const productId = button.dataset.id;
-            try {
-                const response = await fetch(`/admin/products/${productId}`);
-                const product = await response.json();
-                
-                const form = document.getElementById('editProductForm');
-                form.querySelector('[name="productId"]').value = product._id;
-                form.querySelector('[name="name"]').value = product.name;
-                form.querySelector('[name="description"]').value = product.description;
-                form.querySelector('[name="price"]').value = product.price;
-                form.querySelector('[name="category"]').value = product.category;
-                
-                const toppingCheckboxes = form.querySelectorAll('[name="toppings[]"]');
-                toppingCheckboxes.forEach(checkbox => {
-                    checkbox.checked = product.toppings.includes(checkbox.value);
-                });
-            } catch (err) {
-                console.error('Lỗi khi lấy thông tin sản phẩm:', err);
-                alert('Có lỗi xảy ra khi lấy thông tin sản phẩm');
-            }
-        });
-    });
-
-    const editProductForm = document.getElementById('editProductForm');
-    editProductForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(editProductForm);
-        const productId = formData.get('productId');
+    // Handle opening the edit modal
+    editModal.addEventListener('show.bs.modal', async function (event) {
+        const button = event.relatedTarget;
+        const productId = button.getAttribute('data-id');
         
         try {
-            const response = await fetch(`/admin/products/${productId}`, {
-                method: 'PUT',
-                body: formData
-            });
-            
-            const result = await response.json();
-            if (response.status === 200) {
-                alert(result.message);
-                window.location.reload();
-            } else {
-                alert(result.message || 'Có lỗi xảy ra khi cập nhật sản phẩm');
+            const response = await fetch(`/admin/products/${productId}`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
             }
-        } catch (err) {
-            console.error('Lỗi khi gửi yêu cầu cập nhật:', err);
-            alert('Có lỗi xảy ra khi gửi yêu cầu');
+            const product = await response.json();
+
+            // Populate form
+            editForm.action = `/admin/products/update/${productId}?_method=PUT`;
+            editForm.querySelector('[name="productId"]').value = product._id;
+            editForm.querySelector('[name="name"]').value = product.name || '';
+            editForm.querySelector('[name="description"]').value = product.description || '';
+            editForm.querySelector('[name="category"]').value = product.category || '';
+            
+            // Handle prices
+            if (product.category === 'Topping') {
+                const priceForTopping = product.price || (product.sizes && product.sizes[0] ? product.sizes[0].price : '');
+                editForm.querySelector('[name="price"]').value = priceForTopping;
+                editForm.querySelector('[name="sizePriceS"]').value = '';
+                editForm.querySelector('[name="sizePriceM"]').value = '';
+                editForm.querySelector('[name="sizePriceL"]').value = '';
+            } else {
+                const sizeS = product.sizes?.find(s => s.size === 'S')?.price || '';
+                const sizeM = product.sizes?.find(s => s.size === 'M')?.price || '';
+                const sizeL = product.sizes?.find(s => s.size === 'L')?.price || '';
+                editForm.querySelector('[name="sizePriceS"]').value = sizeS;
+                editForm.querySelector('[name="sizePriceM"]').value = sizeM;
+                editForm.querySelector('[name="sizePriceL"]').value = sizeL;
+                editForm.querySelector('[name="price"]').value = '';
+            }
+            
+            // Handle toppings checkboxes
+            const toppingCheckboxes = editForm.querySelectorAll('[name="toppings[]"]');
+            toppingCheckboxes.forEach(checkbox => {
+                checkbox.checked = product.toppings?.includes(checkbox.value) || false;
+            });
+
+            // Trigger the display logic after populating category
+            toggleEditFormFields();
+
+        } catch (error) {
+            console.error('Failed to fetch product details:', error);
+            alert('Không thể tải thông tin sản phẩm. Vui lòng thử lại.');
         }
     });
 
-    const deleteButtons = document.querySelectorAll('.delete-product');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', async () => {
-            console.log('Đã click nút xóa', button.dataset.id);
-
-            if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
-                const productId = button.dataset.id;
-                try {
-                    const response = await fetch(`/admin/products/${productId}`, {
-                        method: 'DELETE'
-                    });
-                    
-                    const result = await response.json();
-                    if (response.status === 200) {
-                        window.location.reload();
-                    } else {
-                        alert(result.message || 'Có lỗi xảy ra khi xóa sản phẩm');
-                    }
-                } catch (err) {
-                    console.error('Lỗi khi gửi yêu cầu xóa:', err);
-                    alert('Có lỗi xảy ra khi gửi yêu cầu');
-                }
-            }
-        });
+    // Clear form when modal is hidden to prevent stale data
+    editModal.addEventListener('hidden.bs.modal', function () {
+        editForm.reset();
+        editForm.action = '';
     });
 });
 </script>

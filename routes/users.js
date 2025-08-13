@@ -1,10 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const passportGoogle = require("../config/passport-google");
 const bcrypt = require("bcryptjs");
 const passport = require("passport");
+
+// User model
 const User = require("../models/User");
 const { forwardAuthenticated } = require("../config/auth");
+const { logSuccessfulLogin, logFailedLogin, logLogout } = require("../middleware/loginLogger");
+const { auditLogin, auditLogout } = require('../middleware/auditTrail');
 
 // ------------------ LOGIN ------------------
 
@@ -34,10 +37,35 @@ router.get(
 
 // Login Handle
 router.post("/login", (req, res, next) => {
-  passport.authenticate("local", {
-    successRedirect: "/dashboard",
-    failureRedirect: "/users/login",
-    failureFlash: true,
+  passport.authenticate("local", async (err, user, info) => {
+    if (err) {
+      return next(err);
+    }
+    
+    if (!user) {
+      // Log failed login attempt
+      await logFailedLogin(req.body.email || req.body.username, req, info.message || 'Invalid credentials');
+      // Audit trail for failed login
+      req.user = { _id: 'unknown', email: req.body.email || req.body.username };
+      await auditLogin(req, false, info.message || 'Invalid credentials');
+      req.flash('error_msg', info.message || 'Đăng nhập thất bại');
+      return res.redirect("/users/login");
+    }
+    
+    req.logIn(user, async (err) => {
+      if (err) {
+        return next(err);
+      }
+      
+      // Log successful login
+      req.user = user; // Set user for logging middleware
+      await logSuccessfulLogin(req, res, () => {});
+      // Audit trail for successful login
+      await auditLogin(req, true);
+      
+      req.flash('success_msg', 'Đăng nhập thành công!');
+      return res.redirect("/dashboard");
+    });
   })(req, res, next);
 });
 
@@ -51,7 +79,7 @@ router.get("/register", forwardAuthenticated, (req, res) => {
 
 // Register Handle
 router.post("/register", async (req, res) => {
-  const { name, email, password, password2 } = req.body;
+  const { name, email, password, password2, birthday } = req.body;
   let errors = [];
 
   // Check required fields
@@ -96,6 +124,7 @@ router.post("/register", async (req, res) => {
           name,
           email,
           password,
+          birthday: birthday || null,
         });
 
         // Hash Password
@@ -117,7 +146,12 @@ router.post("/register", async (req, res) => {
 
 // ------------------ LOGOUT ------------------
 
-router.get("/logout", (req, res) => {
+router.get("/logout", async (req, res, next) => {
+  // Log logout before destroying session
+  await logLogout(req, res, () => {});
+  // Audit trail for logout
+  await auditLogout(req);
+  
   req.logout(function (err) {
     if (err) {
       return next(err);

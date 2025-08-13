@@ -7,7 +7,7 @@
             <th>Ngày đặt</th>
             <th>Tổng tiền</th>
             <th>Trạng thái</th>
-            <th>Xem chi tiết</th>
+            <th>Hành động</th>
         </tr>
     </thead>
     <tbody>
@@ -17,8 +17,30 @@
             {{#if (eq ../user.role 'admin')}}<td>{{this.user.name}}<br>{{this.user.email}}</td>{{/if}}
             <td>{{formatDate this.createdAt}}</td>
             <td>{{this.totalPrice}} VND</td>
-            <td>{{this.status}}</td>
-            <td><a class="btn btn-sm btn-info" href="/orders/{{this._id}}">Chi tiết</a></td>
+            <td>
+                <span class="badge 
+                    {{#if (eq this.status 'completed')}}bg-success
+                    {{else if (eq this.status 'cancelled')}}bg-danger
+                    {{else if (eq this.status 'pending')}}bg-warning
+                    {{else}}bg-info{{/if}}">
+                    {{#if (eq this.status 'completed')}}Hoàn thành
+                    {{else if (eq this.status 'cancelled')}}Đã hủy
+                    {{else if (eq this.status 'pending')}}Đang xử lý
+                    {{else if (eq this.status 'confirmed')}}Đã xác nhận
+                    {{else if (eq this.status 'preparing')}}Đang chuẩn bị
+                    {{else if (eq this.status 'ready')}}Sẵn sàng
+                    {{else}}{{this.status}}{{/if}}
+                </span>
+            </td>
+            <td>
+                <a class="btn btn-sm btn-info" href="/orders/{{this._id}}">Chi tiết</a>
+                {{#if (or (eq this.status 'pending') (eq this.status 'confirmed'))}}
+                <form method="POST" action="/orders/{{this._id}}/cancel" style="display: inline;" 
+                      onsubmit="return confirm('Bạn có chắc muốn hủy đơn hàng này?')">
+                    <button type="submit" class="btn btn-sm btn-danger">Hủy đơn</button>
+                </form>
+                {{/if}}
+            </td>
         </tr>
         {{/each}}
     </tbody>

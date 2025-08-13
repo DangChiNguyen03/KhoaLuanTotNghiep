@@ -35,25 +35,78 @@
                             </td>
                             <td>
                                 <small>
+                                    {{#if size}}
+                                    <div><strong>Size:</strong> {{size}}</div>
+                                    {{/if}}
                                     {{#if toppings.length}}
-                                    <div>Topping:</div>
-                                    <ul class="list-unstyled">
+                                    <div><strong>Topping:</strong></div>
+                                    <ul class="list-unstyled mb-2">
                                         {{#each toppingDetails}}
-                                        <li>{{this.name}}</li>
+                                        <li class="d-flex justify-content-between align-items-center">
+                                            <span>{{this.name}}</span>
+                                            <span class="text-muted">
+                                                {{#if this.price}}
+                                                    {{formatPrice this.price}}
+                                                {{else if this.sizes}}
+                                                    {{formatPrice this.sizes.0.price}}
+                                                {{/if}}
+                                            </span>
+                                        </li>
                                         {{/each}}
                                     </ul>
                                     {{/if}}
                                     {{#if sugarLevel}}
-                                    <div>Đường: {{sugarLevel}}</div>
+                                    <div><strong>Đường:</strong> {{sugarLevel}}</div>
                                     {{/if}}
                                     {{#if iceLevel}}
-                                    <div>Đá: {{iceLevel}}</div>
+                                    <div><strong>Đá:</strong> {{iceLevel}}</div>
                                     {{/if}}
                                 </small>
                             </td>
-                            <td>{{formatPrice product.price}}</td>
+                            <td>
+                                {{#if product.sizes}}
+                                    {{#if size}}
+                                        {{#each product.sizes}}
+                                            {{#if (eq this.size ../size)}}
+                                                {{formatPrice this.price}}
+                                            {{/if}}
+                                        {{/each}}
+                                    {{else}}
+                                        {{formatPrice product.price}}
+                                    {{/if}}
+                                {{else}}
+                                    {{formatPrice product.price}}
+                                {{/if}}
+                            </td>
                             <td>{{quantity}}</td>
-                            <td>{{formatPrice (multiply (add product.price (multiply toppings.length 10000)) quantity)}}</td>
+                            <td class="item-total">
+                                {{!-- Tính tổng tiền item = (giá sản phẩm theo size + tổng giá topping) * số lượng --}}
+                                {{#if product.sizes}}
+                                    {{#if size}}
+                                        {{#each product.sizes}}
+                                            {{#if (eq this.size ../size)}}
+                                                {{#if ../toppingDetails}}
+                                                    {{formatPrice (multiply (add this.price (sum ../toppingDetails "price")) ../quantity)}}
+                                                {{else}}
+                                                    {{formatPrice (multiply this.price ../quantity)}}
+                                                {{/if}}
+                                            {{/if}}
+                                        {{/each}}
+                                    {{else}}
+                                        {{#if toppingDetails}}
+                                            {{formatPrice (multiply (add product.price (sum toppingDetails "price")) quantity)}}
+                                        {{else}}
+                                            {{formatPrice (multiply product.price quantity)}}
+                                        {{/if}}
+                                    {{/if}}
+                                {{else}}
+                                    {{#if toppingDetails}}
+                                        {{formatPrice (multiply (add product.price (sum toppingDetails "price")) quantity)}}
+                                    {{else}}
+                                        {{formatPrice (multiply product.price quantity)}}
+                                    {{/if}}
+                                {{/if}}
+                            </td>
                         </tr>
                         {{/each}}
                     </tbody>

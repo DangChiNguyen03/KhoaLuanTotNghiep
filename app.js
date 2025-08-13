@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const methodOverride = require('method-override');
 const exphbs = require("express-handlebars");
 const mongoose = require("mongoose");
 const session = require("express-session");
@@ -8,6 +9,7 @@ require("./config/passport-google");
 const flash = require("connect-flash");
 const path = require("path");
 const logger = require("./middleware/logger");
+const { addPermissionsToLocals } = require("./middleware/permissions");
 const adminRoutes = require("./routes/admin");
 const cartRoutes = require("./routes/cart");
 const productRoutes = require("./routes/products");
@@ -39,6 +41,7 @@ const hbs = exphbs.create({
   helpers: {
     eq: (a, b) => a === b,
     or: (a, b) => a || b,
+    and: (a, b) => a && b,
     formatDate: function (date) {
       if (!date) return "";
       const d = new Date(date);
@@ -57,6 +60,109 @@ const hbs = exphbs.create({
     },
     multiply: (a, b) => a * b,
     add: (a, b) => a + b,
+    sum: function(array, property) {
+      if (!Array.isArray(array)) return 0;
+      return array.reduce((total, item) => {
+        const value = property ? item[property] : item;
+        return total + (typeof value === 'number' ? value : 0);
+      }, 0);
+    },
+    // Helper cho pagination và logic
+    gt: (a, b) => a > b,
+    lt: (a, b) => a < b,
+    subtract: (a, b) => a - b,
+    range: function(start, end) {
+      const result = [];
+      for (let i = start; i <= end; i++) {
+        result.push(i);
+      }
+      return result;
+    },
+    // Helper format ngày giờ chi tiết
+    formatDateTime: function(date) {
+      if (!date) return "";
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit", 
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    },
+    // Helper format ngày cho input date
+    formatDateInput: function(date) {
+      if (!date) return "";
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "";
+      return d.toISOString().split('T')[0];
+    },
+    // Helper cắt chuỗi
+    substring: function(str, start, length) {
+      if (!str) return "";
+      // Convert ObjectId to string if needed
+      const stringValue = str.toString();
+      return stringValue.substring(start, start + length);
+    },
+    // Helper section cho layout
+    section: function(name, options) {
+      if (!this._sections) this._sections = {};
+      this._sections[name] = options.fn(this);
+      return null;
+    },
+    // Helper format currency
+    formatCurrency: function(amount) {
+      if (!amount) return "0 ₫";
+      return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+      }).format(amount);
+    },
+    // Helper math operations
+    add: (a, b) => a + b,
+    subtract: (a, b) => a - b,
+    multiply: (a, b) => a * b,
+    divide: (a, b) => b !== 0 ? a / b : 0,
+    gt: (a, b) => a > b,
+    lt: (a, b) => a < b,
+    gte: (a, b) => a >= b,
+    lte: (a, b) => a <= b,
+    // Helper for JSON stringify
+    json: function(context) {
+      return JSON.stringify(context);
+    },
+    // Helper for date formatting
+    formatDate: function(date) {
+      if (!date) return '';
+      return new Date(date).toLocaleDateString('vi-VN');
+    },
+    formatDateTime: function(date) {
+      if (!date) return '';
+      return new Date(date).toLocaleString('vi-VN');
+    },
+    formatDateInput: function(date) {
+      if (!date) return '';
+      return new Date(date).toISOString().split('T')[0];
+    },
+    calculateAge: function(birthday) {
+      if (!birthday) return '';
+      const today = new Date();
+      const birthDate = new Date(birthday);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      return age > 0 ? age + ' tuổi' : 'Không hợp lệ';
+    },
+    // Helper for string operations
+    truncate: function(str, length) {
+      if (!str) return '';
+      return str.length > length ? str.substring(0, length) + '...' : str;
+    },
   },
   runtimeOptions: {
     allowProtoPropertiesByDefault: true,
@@ -72,6 +178,7 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
+app.use(methodOverride('_method'));
 app.use(logger);
 
 // Session
@@ -90,6 +197,9 @@ app.use(passport.session());
 
 // Flash
 app.use(flash());
+
+// Permissions middleware for templates
+app.use(addPermissionsToLocals);
 
 // ✅ Gán các biến global cho views
 app.use((req, res, next) => {
