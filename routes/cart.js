@@ -26,6 +26,12 @@ router.get('/', isAuthenticated, async (req, res) => {
                     _id: { $in: validToppingIds }, 
                     category: 'Topping' 
                 }).select('name price sizes');
+                
+                // Đảm bảo mỗi topping có giá hiển thị đúng
+                toppingDetails = toppingDetails.map(topping => ({
+                    ...topping.toObject(),
+                    price: topping.price || (topping.sizes && topping.sizes[0] ? topping.sizes[0].price : 0)
+                }));
             }
 
             return {

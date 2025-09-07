@@ -70,7 +70,7 @@
                             </tr>
                             <tr>
                                 <th>Ngày sinh:</th>
-                                <td><input class="form-control" type="date" name="birthday" value="{{user.birthday}}"></td>
+                                <td><input class="form-control" type="date" name="birthday" value="{{#if user.birthday}}{{formatDateInput user.birthday}}{{/if}}"></td>
                             </tr>
                         </table>
                         <button class="btn btn-success" type="submit">Cập nhật thông tin</button>

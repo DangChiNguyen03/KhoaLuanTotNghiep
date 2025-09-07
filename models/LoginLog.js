@@ -111,7 +111,7 @@ loginLogSchema.statics.detectSuspiciousActivity = function(userId, ipAddress) {
     return this.aggregate([
         {
             $match: {
-                user: mongoose.Types.ObjectId(userId),
+                user: new mongoose.Types.ObjectId(userId),
                 loginTime: { $gte: oneHourAgo }
             }
         },

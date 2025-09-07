@@ -55,10 +55,17 @@ const hasPermission = (requiredPermission) => {
                 ? user.permissions 
                 : DEFAULT_PERMISSIONS[user.role] || [];
 
+
+
             // Check if user has required permission
             if (!userPermissions.includes(requiredPermission)) {
                 req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
-                return res.redirect('/dashboard');
+                // Redirect to admin dashboard if user is admin/staff, otherwise to regular dashboard
+                if (['admin', 'manager', 'staff'].includes(user.role)) {
+                    return res.redirect('/admin/dashboard');
+                } else {
+                    return res.redirect('/dashboard');
+                }
             }
 
             next();
@@ -96,7 +103,12 @@ const hasAnyPermission = (requiredPermissions) => {
 
             if (!hasAccess) {
                 req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
-                return res.redirect('/dashboard');
+                // Redirect to admin dashboard if user is admin/staff, otherwise to regular dashboard
+                if (['admin', 'manager', 'staff'].includes(user.role)) {
+                    return res.redirect('/admin/dashboard');
+                } else {
+                    return res.redirect('/dashboard');
+                }
             }
 
             next();
@@ -120,7 +132,12 @@ const hasRole = (requiredRoles) => {
         
         if (!roles.includes(req.user.role)) {
             req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
-            return res.redirect('/dashboard');
+            // Redirect to admin dashboard if user is admin/staff, otherwise to regular dashboard
+            if (['admin', 'manager', 'staff'].includes(req.user.role)) {
+                return res.redirect('/admin/dashboard');
+            } else {
+                return res.redirect('/dashboard');
+            }
         }
 
         next();

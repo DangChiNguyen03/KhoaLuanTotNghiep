@@ -1,12 +1,105 @@
+{{#section 'title'}}Thông tin cá nhân{{/section}}
+
 <div class="container mt-4">
-    <h2>Thông tin cá nhân</h2>
-    <div class="row justify-content-center">
-        <div class="col-md-6 m-auto">
-            <ul class="list-group">
-                <li class="list-group-item"><b>Tên:</b> {{user.name}}</li>
-                <li class="list-group-item"><b>Email:</b> {{user.email}}</li>
-                <li class="list-group-item"><b>Loại tài khoản:</b> {{#if user.googleId}}Google{{else}}Thường{{/if}}</li>
-            </ul>
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-user"></i> Thông tin cá nhân</h4>
+                </div>
+                <div class="card-body">
+                    {{> messages}}
+                    
+                    <!-- Hiển thị thông tin hiện tại -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Thông tin hiện tại</h5>
+                                    <p><strong>Tên:</strong> {{user.name}}</p>
+                                    <p><strong>Email:</strong> {{user.email}}</p>
+                                    <p><strong>Số điện thoại:</strong> {{#if user.phone}}{{user.phone}}{{else}}<em>Chưa cập nhật</em>{{/if}}</p>
+                                    <p><strong>Địa chỉ:</strong> {{#if user.address}}{{user.address}}{{else}}<em>Chưa cập nhật</em>{{/if}}</p>
+                                    <p><strong>Ngày sinh:</strong> 
+                                        {{#if user.birthday}}
+                                            {{formatDateInput user.birthday}} ({{calculateAge user.birthday}} tuổi)
+                                        {{else}}
+                                            <em>Chưa cập nhật</em>
+                                        {{/if}}
+                                    </p>
+                                    <p><strong>Loại tài khoản:</strong> {{#if user.googleId}}Google{{else}}Thường{{/if}}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <!-- Form cập nhật thông tin -->
+                            <form method="POST" action="/profile/update">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Họ và tên</label>
+                                    <input type="text" class="form-control" id="name" name="name" value="{{user.name}}" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="phone" class="form-label">Số điện thoại</label>
+                                    <input type="tel" class="form-control" id="phone" name="phone" value="{{user.phone}}" placeholder="Nhập số điện thoại">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="address" class="form-label">Địa chỉ</label>
+                                    <textarea class="form-control" id="address" name="address" rows="2" placeholder="Nhập địa chỉ">{{user.address}}</textarea>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="birthday" class="form-label">Ngày sinh</label>
+                                    <input type="date" class="form-control" id="birthday" name="birthday" 
+                                           value="{{#if user.birthday}}{{formatDateInput user.birthday}}{{/if}}"
+                                           max="{{formatDateInput 'today'}}">
+                                    <div class="form-text">Cập nhật ngày sinh để hiển thị tuổi chính xác</div>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Cập nhật thông tin
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Đổi mật khẩu (chỉ cho tài khoản thường) -->
+                    {{#unless user.googleId}}
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6 mx-auto">
+                            <h5>Đổi mật khẩu</h5>
+                            <form method="POST" action="/profile/change-password">
+                                <div class="mb-3">
+                                    <label for="currentPassword" class="form-label">Mật khẩu hiện tại</label>
+                                    <input type="password" class="form-control" id="currentPassword" name="currentPassword" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="newPassword" class="form-label">Mật khẩu mới</label>
+                                    <input type="password" class="form-control" id="newPassword" name="newPassword" required minlength="6">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label">Xác nhận mật khẩu mới</label>
+                                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required minlength="6">
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-warning">
+                                        <i class="fas fa-key"></i> Đổi mật khẩu
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {{/unless}}
+                </div>
+            </div>
         </div>
     </div>
 </div>

@@ -20,6 +20,9 @@ const profileRouter = require("./routes/profile");
 
 const app = express();
 
+// Trust proxy để lấy đúng IP address từ headers
+app.set('trust proxy', true);
+
 // Kết nối MongoDB
 mongoose
   .connect("mongodb://127.0.0.1:27017/bubble-tea-shop", {
@@ -40,6 +43,7 @@ const hbs = exphbs.create({
   partialsDir: path.join(__dirname, "views", "partials"),
   helpers: {
     eq: (a, b) => a === b,
+    ne: (a, b) => a !== b,
     or: (a, b) => a || b,
     and: (a, b) => a && b,
     formatDate: function (date) {
@@ -173,6 +177,8 @@ const hbs = exphbs.create({
 app.engine(".hbs", hbs.engine);
 app.set("view engine", ".hbs");
 app.set("views", path.join(__dirname, "views"));
+console.log('📁 Views directory:', path.join(__dirname, "views"));
+console.log('📁 Current directory:', __dirname);
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
@@ -216,7 +222,11 @@ app.use("/", require("./routes/index"));
 app.use("/users", userRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/products", productRoutes);
-app.use("/admin", adminRoutes);
+
+// Admin routes with authentication
+const { ensureAuthenticated } = require('./config/auth');
+app.use("/admin", ensureAuthenticated, adminRoutes);
+
 app.use("/cart", cartRoutes);
 app.use("/orders", ordersRouter);
 app.use("/", profileRouter);

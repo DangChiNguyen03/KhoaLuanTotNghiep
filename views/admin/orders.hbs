@@ -72,10 +72,6 @@
                             <label class="form-label">Trạng thái</label>
                             <select class="form-select" name="status">
                                 <option value="">Tất cả trạng thái</option>
-                                <option value="pending" {{#if (eq status 'pending')}}selected{{/if}}>Chờ xác nhận</option>
-                                <option value="confirmed" {{#if (eq status 'confirmed')}}selected{{/if}}>Đã xác nhận</option>
-                                <option value="preparing" {{#if (eq status 'preparing')}}selected{{/if}}>Đang chuẩn bị</option>
-                                <option value="ready" {{#if (eq status 'ready')}}selected{{/if}}>Sẵn sàng</option>
                                 <option value="completed" {{#if (eq status 'completed')}}selected{{/if}}>Hoàn thành</option>
                                 <option value="cancelled" {{#if (eq status 'cancelled')}}selected{{/if}}>Đã hủy</option>
                             </select>

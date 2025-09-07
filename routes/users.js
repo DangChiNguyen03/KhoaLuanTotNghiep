@@ -30,13 +30,31 @@ router.get(
     failureRedirect: "/users/login",
     failureFlash: true,
   }),
-  (req, res) => {
-    res.redirect("/");
+  async (req, res) => {
+    try {
+      // Ghi log đăng nhập thành công (Google)
+      await new Promise((resolve, reject) => {
+        logSuccessfulLogin(req, res, (err) => (err ? reject(err) : resolve()));
+      });
+
+      // Audit trail
+      await auditLogin(req, true);
+
+      req.flash('success_msg', 'Đăng nhập thành công!');
+      res.redirect('/dashboard');
+    } catch (error) {
+      console.error('❌ Error in Google login process:', error);
+      // Dù gặp lỗi ghi log, vẫn cho vào hệ thống nhưng đảm bảo UX
+      req.flash('success_msg', 'Đăng nhập thành công!');
+      res.redirect('/dashboard');
+    }
   }
 );
 
 // Login Handle
-router.post("/login", (req, res, next) => {
+const { loginRateLimiter } = require("../middleware/rateLimiter");
+
+router.post("/login", loginRateLimiter, (req, res, next) => {
   passport.authenticate("local", async (err, user, info) => {
     if (err) {
       return next(err);
@@ -57,14 +75,31 @@ router.post("/login", (req, res, next) => {
         return next(err);
       }
       
-      // Log successful login
-      req.user = user; // Set user for logging middleware
-      await logSuccessfulLogin(req, res, () => {});
-      // Audit trail for successful login
-      await auditLogin(req, true);
-      
-      req.flash('success_msg', 'Đăng nhập thành công!');
-      return res.redirect("/dashboard");
+      try {
+        // Log successful login
+        console.log('🔄 About to log successful login for:', user.email);
+        req.user = user; // Set user for logging middleware
+        
+        // Call middleware directly with proper parameters
+        await new Promise((resolve, reject) => {
+          logSuccessfulLogin(req, res, (error) => {
+            if (error) reject(error);
+            else resolve();
+          });
+        });
+        
+        console.log('✅ Finished logging successful login');
+        
+        // Audit trail for successful login
+        await auditLogin(req, true);
+        
+        req.flash('success_msg', 'Đăng nhập thành công!');
+        return res.redirect("/dashboard");
+      } catch (error) {
+        console.error('❌ Error in login process:', error);
+        req.flash('success_msg', 'Đăng nhập thành công!');
+        return res.redirect("/dashboard");
+      }
     });
   })(req, res, next);
 });

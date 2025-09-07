@@ -10,7 +10,177 @@ const Payment = require('../models/Payment');
 const PaymentMethod = require('../models/PaymentMethod');
 const LoginLog = require('../models/LoginLog');
 const AuditLog = require('../models/AuditLog');
-const { isAdmin } = require('../middleware/auth');
+const { isAdmin, isAdminOrStaff, isAdminOrManager } = require('../middleware/auth');
+
+// Login logs route - MUST be before root route
+router.get('/login-logs', isAdmin, async (req, res) => {
+    console.log('🔍 Login logs route accessed:', req.originalUrl);
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = 20;
+        const skip = (page - 1) * limit;
+        
+        // Filters
+        const filters = {};
+        if (req.query.status) filters.loginStatus = req.query.status;
+        if (req.query.user) {
+            const users = await User.find({
+                $or: [
+                    { name: new RegExp(req.query.user, 'i') },
+                    { email: new RegExp(req.query.user, 'i') }
+                ]
+            }).select('_id');
+            filters.user = { $in: users.map(u => u._id) };
+        }
+        const ipParam = req.query.ipAddress || req.query.ip;
+        if (ipParam) {
+            filters.ipAddress = new RegExp(ipParam, 'i');
+        }
+        if (req.query.dateFrom || req.query.dateTo) {
+            filters.loginTime = {};
+            if (req.query.dateFrom) {
+                filters.loginTime.$gte = new Date(req.query.dateFrom);
+            }
+            if (req.query.dateTo) {
+                const dateTo = new Date(req.query.dateTo);
+                dateTo.setHours(23, 59, 59, 999);
+                filters.loginTime.$lte = dateTo;
+            }
+        }
+        
+        const matchConditions = filters;
+        
+        // Lấy danh sách logs với phân trang và lọc
+        const logs = await LoginLog.find(matchConditions)
+            .populate('user', 'name email role')
+            .sort({ loginTime: -1 })
+            .skip(skip)
+            .limit(limit);
+            
+        const totalLogs = await LoginLog.countDocuments(filters);
+        const totalPages = Math.ceil(totalLogs / limit);
+        
+        // Statistics - tổng toàn bộ (không áp dụng filters)
+        const allStats = await LoginLog.aggregate([
+            {
+                $group: {
+                    _id: '$loginStatus',
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Debug counts to verify data presence
+        const successCount = await LoginLog.countDocuments({ loginStatus: 'success' });
+        const failedCount = await LoginLog.countDocuments({ loginStatus: 'failed' });
+        
+        const stats = {
+            success: allStats.find(s => s._id === 'success')?.count || 0,
+            failed: allStats.find(s => s._id === 'failed')?.count || 0,
+            total: allStats.reduce((sum, s) => sum + s.count, 0)
+        };
+        
+        console.log('📄 Rendering template: admin/login-logs');
+        console.log('📊 Data being passed:', { 
+            title: 'Quản lý Log Đăng nhập',
+            logsCount: logs.length,
+            stats,
+            currentPage: page,
+            totalPages,
+            totalLogs,
+            debugCounts: { successCount, failedCount }
+        });
+        
+        // Try absolute path first
+        const fs = require('fs');
+        const path = require('path');
+        const templatePath = path.join(__dirname, '..', 'views', 'admin', 'login-logs.hbs');
+        console.log('🔍 Checking template path:', templatePath);
+        console.log('📁 Template exists:', fs.existsSync(templatePath));
+        
+        res.render('admin/login-logs', {
+            title: 'Quản lý Log Đăng nhập',
+            loginLogs: logs,
+            stats,
+            currentPage: page,
+            totalPages,
+            totalLogs,
+            filters: req.query,
+            layout: 'main'
+        });
+    } catch (error) {
+        console.error('Error fetching login logs:', error);
+        req.flash('error_msg', 'Lỗi khi tải danh sách login logs');
+        res.redirect('/admin/dashboard');
+    }
+});
+
+// Export CSV login logs theo filter hiện tại
+router.get('/login-logs/export', isAdmin, async (req, res) => {
+    try {
+        const filters = {};
+        if (req.query.status) filters.loginStatus = req.query.status;
+        if (req.query.risk) filters.riskLevel = req.query.risk;
+        if (req.query.user) {
+            const users = await User.find({
+                $or: [
+                    { name: new RegExp(req.query.user, 'i') },
+                    { email: new RegExp(req.query.user, 'i') }
+                ]
+            }).select('_id');
+            filters.user = { $in: users.map(u => u._id) };
+        }
+        const ipParam = req.query.ipAddress || req.query.ip;
+        if (ipParam) filters.ipAddress = new RegExp(ipParam, 'i');
+        if (req.query.dateFrom || req.query.dateTo) {
+            filters.loginTime = {};
+            if (req.query.dateFrom) filters.loginTime.$gte = new Date(req.query.dateFrom);
+            if (req.query.dateTo) {
+                const d = new Date(req.query.dateTo); d.setHours(23,59,59,999);
+                filters.loginTime.$lte = d;
+            }
+        }
+
+        const logs = await LoginLog.find(filters)
+            .populate('user', 'name email role')
+            .sort({ loginTime: -1 })
+            .limit(5000); // tránh file quá lớn
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="login-logs.csv"');
+        const header = 'time,user_name,user_email,role,ip,browser,os,status,risk,session_active,duration,reason\n';
+        res.write('\uFEFF' + header);
+        for (const l of logs) {
+            const row = [
+                new Date(l.loginTime).toISOString(),
+                (l.user?.name || l.username || '').replace(/,/g,' '),
+                (l.user?.email || '').replace(/,/g,' '),
+                (l.user?.role || ''),
+                l.ipAddress,
+                l.deviceInfo?.browser || '',
+                l.deviceInfo?.os || '',
+                l.loginStatus,
+                l.riskLevel,
+                l.isActive ? 'yes' : 'no',
+                l.sessionDuration || '',
+                l.failureReason ? l.failureReason.replace(/,/g,' ') : ''
+            ].join(',') + '\n';
+            res.write(row);
+        }
+        res.end();
+    } catch (err) {
+        console.error('Export CSV error:', err);
+        req.flash('error_msg', 'Lỗi export CSV');
+        res.redirect('/admin/login-logs');
+    }
+});
+
+// Admin Dashboard - Main route  
+router.get('/', isAdmin, (req, res) => {
+    console.log('🔍 Admin root route accessed:', req.originalUrl);
+    res.redirect('/admin/dashboard');
+});
+
 const { validateProduct } = require('../middleware/validate');
 const { hasPermission, hasRole, DEFAULT_PERMISSIONS } = require('../middleware/permissions');
 const { 
@@ -186,7 +356,49 @@ router.delete('/products/delete/:id', isAdmin, async (req, res) => {
 // ===== CUSTOMER MANAGEMENT ROUTES =====
 
 // Danh sách khách hàng
-router.get('/customers', isAdmin, async (req, res) => {
+router.get('/customers', async (req, res) => {
+    console.log('🔍 Customers route accessed by user:', req.user?.email, 'role:', req.user?.role);
+    
+    // Check permissions manually with detailed logging
+    if (!req.user) {
+        console.log('❌ No user found in request');
+        req.flash('error_msg', 'Vui lòng đăng nhập để tiếp tục');
+        return res.redirect('/users/login');
+    }
+    
+    const User = require('../models/User');
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        console.log('❌ User not found in database');
+        req.flash('error_msg', 'Người dùng không tồn tại');
+        return res.redirect('/users/login');
+    }
+    
+    console.log('👤 User found:', user.email, 'role:', user.role, 'permissions:', user.permissions);
+    
+    // Get user permissions
+    const { DEFAULT_PERMISSIONS } = require('../middleware/permissions');
+    let userPermissions = user.permissions && user.permissions.length > 0 
+        ? user.permissions 
+        : DEFAULT_PERMISSIONS[user.role] || [];
+    
+    console.log('🔑 User permissions:', userPermissions);
+    console.log('🎯 Required permission: manage_customers');
+    console.log('✅ Has permission:', userPermissions.includes('manage_customers'));
+    console.log('🔍 DEFAULT_PERMISSIONS for admin:', DEFAULT_PERMISSIONS.admin);
+    console.log('🔍 User role:', user.role);
+    console.log('🔍 User custom permissions:', user.permissions);
+    
+    // For debugging - temporarily allow admin role regardless of permissions
+    if (user.role === 'admin') {
+        console.log('🚀 Admin role detected - bypassing permission check for debugging');
+    } else if (!userPermissions.includes('manage_customers')) {
+        console.log('❌ User does not have manage_customers permission');
+        req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
+        return res.redirect('/admin/dashboard');
+    }
+    
+    console.log('✅ Permission check passed, proceeding to customers list');
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
@@ -360,7 +572,7 @@ router.post('/customers/:id/delete', isAdmin, async (req, res) => {
 // ===== SALES MANAGEMENT ROUTES =====
 
 // Dashboard thống kê doanh số
-router.get('/dashboard', isAdmin, async (req, res) => {
+router.get('/dashboard', isAdminOrStaff, async (req, res) => {
     try {
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -465,7 +677,7 @@ router.get('/dashboard', isAdmin, async (req, res) => {
 });
 
 // Quản lý đơn hàng
-router.get('/orders', isAdmin, async (req, res) => {
+router.get('/orders', isAdminOrStaff, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
@@ -535,7 +747,7 @@ router.get('/orders', isAdmin, async (req, res) => {
 });
 
 // Cập nhật trạng thái đơn hàng
-router.post('/orders/:id/status', isAdmin, async (req, res) => {
+router.post('/orders/:id/status', isAdminOrStaff, async (req, res) => {
     try {
         const { status } = req.body;
         
@@ -847,94 +1059,7 @@ router.post('/init-payment-methods', isAdmin, async (req, res) => {
 
 // ==================== LOGIN LOGS MANAGEMENT ====================
 
-// Trang quản lý login logs
-router.get('/login-logs', isAdmin, async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = 20;
-        const skip = (page - 1) * limit;
-        
-        // Filters
-        const filters = {};
-        if (req.query.status) filters.loginStatus = req.query.status;
-        if (req.query.user) {
-            const users = await User.find({
-                $or: [
-                    { name: new RegExp(req.query.user, 'i') },
-                    { email: new RegExp(req.query.user, 'i') }
-                ]
-            }).select('_id');
-            filters.user = { $in: users.map(u => u._id) };
-        }
-        if (req.query.ip) filters.ipAddress = new RegExp(req.query.ip, 'i');
-        if (req.query.risk) filters.riskLevel = req.query.risk;
-        
-        // Date range filter
-        if (req.query.dateFrom || req.query.dateTo) {
-            filters.loginTime = {};
-            if (req.query.dateFrom) {
-                filters.loginTime.$gte = new Date(req.query.dateFrom);
-            }
-            if (req.query.dateTo) {
-                const dateTo = new Date(req.query.dateTo);
-                dateTo.setHours(23, 59, 59, 999);
-                filters.loginTime.$lte = dateTo;
-            }
-        }
-        
-        const loginLogs = await LoginLog.find(filters)
-            .populate('user', 'name email role')
-            .sort({ loginTime: -1 })
-            .skip(skip)
-            .limit(limit);
-            
-        const totalLogs = await LoginLog.countDocuments(filters);
-        const totalPages = Math.ceil(totalLogs / limit);
-        
-        // Statistics
-        const stats = await LoginLog.aggregate([
-            { $match: filters },
-            {
-                $group: {
-                    _id: '$loginStatus',
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-        
-        const statsObj = {
-            success: stats.find(s => s._id === 'success')?.count || 0,
-            failed: stats.find(s => s._id === 'failed')?.count || 0
-        };
-        
-        // Recent suspicious activities
-        const suspiciousLogs = await LoginLog.find({
-            riskLevel: 'high',
-            loginTime: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-        })
-        .populate('user', 'name email')
-        .sort({ loginTime: -1 })
-        .limit(10);
-        
-        res.render('admin/login-logs', {
-            loginLogs,
-            stats: statsObj,
-            suspiciousLogs,
-            currentPage: page,
-            totalPages,
-            totalLogs,
-            prevPage: page > 1 ? page - 1 : null,
-            nextPage: page < totalPages ? page + 1 : null,
-            filters: req.query,
-            title: 'Quản lý Log Đăng nhập'
-        });
-        
-    } catch (error) {
-        console.error('Error fetching login logs:', error);
-        req.flash('error_msg', 'Có lỗi khi tải danh sách log đăng nhập');
-        res.redirect('/admin');
-    }
-});
+// DUPLICATE ROUTE REMOVED - Already defined above
 
 // API để lấy thống kê login theo thời gian
 router.get('/api/login-stats', isAdmin, async (req, res) => {
@@ -970,25 +1095,6 @@ router.get('/api/login-stats', isAdmin, async (req, res) => {
     }
 });
 
-// Xóa log cũ (cleanup)
-router.post('/login-logs/cleanup', isAdmin, async (req, res) => {
-    try {
-        const daysToKeep = parseInt(req.body.days) || 30;
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-        
-        const result = await LoginLog.deleteMany({
-            loginTime: { $lt: cutoffDate }
-        });
-        
-        req.flash('success_msg', `Đã xóa ${result.deletedCount} log cũ (trước ${daysToKeep} ngày)`);
-        res.redirect('/admin/login-logs');
-    } catch (error) {
-        console.error('Error cleaning up login logs:', error);
-        req.flash('error_msg', 'Có lỗi khi xóa log cũ');
-        res.redirect('/admin/login-logs');
-    }
-});
 
 // Đánh dấu log đáng ngờ
 router.post('/login-logs/:id/mark-risk', isAdmin, async (req, res) => {
@@ -1357,10 +1463,12 @@ router.get('/audit-logs', hasPermission('manage_users'), async (req, res) => {
         }
         
         const auditLogs = await AuditLog.find(filters)
+            .select('timestamp user action resourceType resourceId ipAddress status details oldValues newValues errorMessage')
             .populate('user', 'name email role employeeId')
             .sort({ timestamp: -1 })
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean();
             
         const totalLogs = await AuditLog.countDocuments(filters);
         const totalPages = Math.ceil(totalLogs / limit);
@@ -1396,6 +1504,54 @@ router.get('/audit-logs', hasPermission('manage_users'), async (req, res) => {
         console.error('Error fetching audit logs:', error);
         req.flash('error_msg', 'Có lỗi khi tải nhật ký hoạt động');
         res.redirect('/admin');
+    }
+});
+
+// Export CSV cho audit logs
+router.get('/audit-logs/export', hasPermission('manage_users'), async (req, res) => {
+    try {
+        const filters = {};
+        if (req.query.user) filters.user = req.query.user;
+        if (req.query.action) filters.action = req.query.action;
+        if (req.query.resourceType) filters.resourceType = req.query.resourceType;
+        if (req.query.status) filters.status = req.query.status;
+        if (req.query.startDate && req.query.endDate) {
+            filters.timestamp = {
+                $gte: new Date(req.query.startDate),
+                $lte: new Date(req.query.endDate + 'T23:59:59')
+            };
+        }
+
+        const logs = await AuditLog.find(filters)
+            .select('timestamp user action resourceType resourceId ipAddress status errorMessage')
+            .populate('user', 'name email role employeeId')
+            .sort({ timestamp: -1 })
+            .limit(5000)
+            .lean();
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="audit-logs.csv"');
+        res.write('\uFEFFtime,user_name,user_email,role,action,resourceType,resourceId,ip,status,error\n');
+        for (const l of logs) {
+            const row = [
+                new Date(l.timestamp).toISOString(),
+                (l.user?.name || 'System').replace(/,/g,' '),
+                (l.user?.email || '').replace(/,/g,' '),
+                (l.user?.role || ''),
+                l.action,
+                l.resourceType,
+                l.resourceId || '',
+                l.ipAddress || '',
+                l.status,
+                (l.errorMessage || '').replace(/,/g,' ')
+            ].join(',') + '\n';
+            res.write(row);
+        }
+        res.end();
+    } catch (error) {
+        console.error('Export audit CSV error:', error);
+        req.flash('error_msg', 'Lỗi export CSV');
+        res.redirect('/admin/audit-logs');
     }
 });
 
@@ -1499,8 +1655,46 @@ router.post('/audit-logs/cleanup', hasRole('admin'), async (req, res) => {
 
 // ==================== REPORTS MODULE ====================
 
+
+
 // Customer Report (Báo cáo khách hàng)
-router.get('/reports/customers', hasPermission('view_reports'), async (req, res) => {
+router.get('/reports/customers', async (req, res) => {
+    console.log('🔍 Customer report route accessed by user:', req.user?.email, 'role:', req.user?.role);
+    
+    // Check permissions manually with detailed logging
+    if (!req.user) {
+        console.log('❌ No user found in request');
+        req.flash('error_msg', 'Vui lòng đăng nhập để tiếp tục');
+        return res.redirect('/users/login');
+    }
+    
+    const User = require('../models/User');
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        console.log('❌ User not found in database');
+        req.flash('error_msg', 'Người dùng không tồn tại');
+        return res.redirect('/users/login');
+    }
+    
+    console.log('👤 User found:', user.email, 'role:', user.role, 'permissions:', user.permissions);
+    
+    // Get user permissions
+    const { DEFAULT_PERMISSIONS } = require('../middleware/permissions');
+    let userPermissions = user.permissions && user.permissions.length > 0 
+        ? user.permissions 
+        : DEFAULT_PERMISSIONS[user.role] || [];
+    
+    console.log('🔑 User permissions:', userPermissions);
+    console.log('🎯 Required permission: view_reports');
+    console.log('✅ Has permission:', userPermissions.includes('view_reports'));
+    
+    if (!userPermissions.includes('view_reports')) {
+        console.log('❌ User does not have view_reports permission');
+        req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
+        return res.redirect('/admin/dashboard');
+    }
+    
+    console.log('✅ Permission check passed, proceeding to report generation');
     try {
         const { startDate, endDate, exportFormat } = req.query;
         
@@ -1512,35 +1706,124 @@ router.get('/reports/customers', hasPermission('view_reports'), async (req, res)
         const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
         const reportEndDate = endDate ? new Date(endDate + 'T23:59:59') : defaultEndDate;
         
-        // Customer statistics
-        const customerStats = await User.aggregate([
+        console.log('🔍 Debug date range:', { reportStartDate, reportEndDate });
+        
+        // Debug: Kiểm tra dữ liệu user thực tế
+        const allUsers = await User.find({}).select('email role createdAt lastLogin date').limit(10);
+        console.log('👥 Sample users in DB:', allUsers);
+        
+        // Kiểm tra field nào có dữ liệu
+        const userFieldCheck = await User.findOne({});
+        console.log('🔍 User schema fields:', Object.keys(userFieldCheck.toObject()));
+        
+        // Tổng tài khoản đăng ký trong khoảng thời gian (tất cả role) - sử dụng field 'date'
+        const newCustomerStats = await User.aggregate([
             {
                 $match: {
-                    role: 'customer',
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate }
+                    date: { $gte: reportStartDate, $lte: reportEndDate }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalNewCustomers: { $sum: 1 }
+                }
+            }
+        ]);
+
+        console.log('📊 New users result:', newCustomerStats);
+
+        // Tài khoản hoạt động - Sử dụng LoginLog collection để đếm user đăng nhập
+        const activeCustomerStats = await User.aggregate([
+            {
+                $lookup: {
+                    from: 'loginlogs',
+                    localField: '_id',
+                    foreignField: 'user',
+                    as: 'loginHistory'
+                }
+            },
+            {
+                $match: {
+                    'loginHistory.loginTime': { $gte: reportStartDate, $lte: reportEndDate },
+                    'loginHistory.loginStatus': 'success'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalActiveCustomers: { $sum: 1 }
+                }
+            }
+        ]);
+
+        console.log('🟢 Active users result:', activeCustomerStats);
+
+        // Debug: Kiểm tra Order data
+        const sampleOrders = await Order.find({}).select('user totalPrice status date createdAt').limit(5);
+        console.log('📦 Sample orders in DB:', sampleOrders);
+
+        // Customer statistics - Combined for demographics (tất cả role)
+        const customerStats = await User.aggregate([
+            {
+                $match: {}
+            },
+            {
+                $addFields: {
+                    // Parse formats: timestamp number; ISO; and explicit M/D/YYYY via regex
+                    birthMDY: { $regexFind: { input: { $toString: '$birthday' }, regex: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/ } },
+                    today: new Date()
+                }
+            },
+            {
+                $addFields: {
+                    birthFromMDY: {
+                        $cond: [
+                            { $ne: ['$birthMDY', null] },
+                            { $dateFromParts: {
+                                year: { $toInt: { $arrayElemAt: ['$birthMDY.captures', 2] } },
+                                month: { $toInt: { $arrayElemAt: ['$birthMDY.captures', 0] } },
+                                day: { $toInt: { $arrayElemAt: ['$birthMDY.captures', 1] } }
+                            } },
+                            null
+                        ]
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    birthDateConverted: {
+                        $cond: [
+                            { $ne: ['$birthFromMDY', null] },
+                            '$birthFromMDY',
+                            {
+                                $switch: {
+                                    branches: [
+                                        { case: { $isNumber: '$birthday' }, then: { $toDate: '$birthday' } },
+                                        { case: { $and: [ { $eq: [{ $type: '$birthday' }, 'string'] }, { $regexMatch: { input: { $toString: '$birthday' }, regex: /\d{4}-\d{2}-\d{2}.*/ } } ] }, then: { $toDate: '$birthday' } }
+                                    ],
+                                    default: '$birthday'
+                                }
+                            }
+                        ]
+                    }
                 }
             },
             {
                 $addFields: {
                     age: {
-                        $cond: {
-                            if: { $ne: ['$birthday', null] },
-                            then: {
-                                $let: {
-                                    vars: {
-                                        today: new Date(),
-                                        birthDate: { $toDate: '$birthday' }
-                                    },
-                                    in: {
-                                        $subtract: [
-                                            { $year: '$$today' },
-                                            { $year: '$$birthDate' }
-                                        ]
-                                    }
+                        $cond: [
+                            { $and: [ { $ne: ['$birthDateConverted', null] }, { $lte: ['$birthDateConverted', '$today'] } ] },
+                            {
+                                $floor: {
+                                    $divide: [
+                                        { $subtract: ['$today', '$birthDateConverted'] },
+                                        31557600000
+                                    ]
                                 }
                             },
-                            else: null
-                        }
+                            null
+                        ]
                     }
                 }
             },
@@ -1553,25 +1836,70 @@ router.get('/reports/customers', hasPermission('view_reports'), async (req, res)
                 }
             }
         ]);
-        
-        // Customer registration trend by day
-        const registrationTrend = await User.aggregate([
+
+        // Avg age across ALL customers with valid birthday (không giới hạn theo khoảng ngày)
+        const avgAgeAgg = await User.aggregate([
             {
                 $match: {
-                    role: 'customer',
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate }
+                    birthday: { $ne: null }
+                }
+            },
+            {
+                $addFields: {
+                    birthDateConverted: {
+                        $cond: [
+                            { $isNumber: '$birthday' },
+                            { $toDate: '$birthday' },
+                            '$birthday'
+                        ]
+                    },
+                    today: new Date()
+                }
+            },
+            {
+                $match: { birthDateConverted: { $type: 'date', $lte: new Date() } }
+            },
+            {
+                $addFields: {
+                    age: {
+                        $floor: {
+                            $divide: [
+                                { $subtract: ['$today', '$birthDateConverted'] },
+                                31557600000
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                $group: { _id: null, avgAge: { $avg: '$age' } }
+            }
+        ]);
+        
+        // Customer registration trend by day - sử dụng field 'date'
+        const registrationRaw = await User.aggregate([
+            {
+                $match: {
+                    date: { $gte: reportStartDate, $lte: reportEndDate }
                 }
             },
             {
                 $group: {
-                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
                     count: { $sum: 1 }
                 }
             },
             { $sort: { _id: 1 } }
         ]);
+        // Fill missing dates with 0 for smoother chart display
+        const registrationMap = new Map(registrationRaw.map(r => [r._id, r.count]));
+        const filledRegistration = [];
+        for (let d = new Date(reportStartDate); d <= reportEndDate; d.setDate(d.getDate() + 1)) {
+            const key = d.toISOString().split('T')[0];
+            filledRegistration.push({ _id: key, count: registrationMap.get(key) || 0 });
+        }
         
-        // Top customers by order count and value
+        // Top customers by order count and value - sử dụng field 'createdAt' cho Order
         const topCustomers = await Order.aggregate([
             {
                 $match: {
@@ -1583,8 +1911,8 @@ router.get('/reports/customers', hasPermission('view_reports'), async (req, res)
                 $group: {
                     _id: '$user',
                     totalOrders: { $sum: 1 },
-                    totalSpent: { $sum: '$totalAmount' },
-                    avgOrderValue: { $avg: '$totalAmount' },
+                    totalSpent: { $sum: '$totalPrice' },
+                    avgOrderValue: { $avg: '$totalPrice' },
                     lastOrderDate: { $max: '$createdAt' }
                 }
             },
@@ -1613,38 +1941,65 @@ router.get('/reports/customers', hasPermission('view_reports'), async (req, res)
             { $limit: 20 }
         ]);
         
-        // Customer demographics
+        console.log('🏆 Top customers result:', topCustomers);
+        
+        // Customer demographics (toàn bộ khách có ngày sinh hợp lệ, không giới hạn theo createdAt)
         const demographics = await User.aggregate([
+            { $match: { birthday: { $ne: null } } },
             {
-                $match: {
-                    role: 'customer',
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate }
+                $addFields: {
+                    birthMDY: { $regexFind: { input: { $toString: '$birthday' }, regex: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/ } },
+                    today: new Date()
                 }
             },
             {
                 $addFields: {
-                    age: {
-                        $cond: {
-                            if: { $ne: ['$birthday', null] },
-                            then: {
-                                $let: {
-                                    vars: {
-                                        today: new Date(),
-                                        birthDate: { $toDate: '$birthday' }
-                                    },
-                                    in: {
-                                        $subtract: [
-                                            { $year: '$$today' },
-                                            { $year: '$$birthDate' }
-                                        ]
-                                    }
+                    birthFromMDY: {
+                        $cond: [
+                            { $ne: ['$birthMDY', null] },
+                            { $dateFromParts: {
+                                year: { $toInt: { $arrayElemAt: ['$birthMDY.captures', 2] } },
+                                month: { $toInt: { $arrayElemAt: ['$birthMDY.captures', 0] } },
+                                day: { $toInt: { $arrayElemAt: ['$birthMDY.captures', 1] } }
+                            } },
+                            null
+                        ]
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    birthDateConverted: {
+                        $cond: [
+                            { $ne: ['$birthFromMDY', null] },
+                            '$birthFromMDY',
+                            {
+                                $switch: {
+                                    branches: [
+                                        { case: { $isNumber: '$birthday' }, then: { $toDate: '$birthday' } },
+                                        { case: { $and: [ { $eq: [{ $type: '$birthday' }, 'string'] }, { $regexMatch: { input: { $toString: '$birthday' }, regex: /\d{4}-\d{2}-\d{2}.*/ } } ] }, then: { $toDate: '$birthday' } }
+                                    ],
+                                    default: '$birthday'
                                 }
-                            },
-                            else: null
+                            }
+                        ]
+                    }
+                }
+            },
+            { $match: { birthDateConverted: { $ne: null } } },
+            {
+                $addFields: {
+                    age: {
+                        $floor: {
+                            $divide: [
+                                { $subtract: ['$$NOW', '$birthDateConverted'] },
+                                31557600000
+                            ]
                         }
                     }
                 }
             },
+            { $match: { age: { $gte: 0, $lte: 130 } } },
             {
                 $group: {
                     _id: {
@@ -1668,7 +2023,7 @@ router.get('/reports/customers', hasPermission('view_reports'), async (req, res)
             { $sort: { '_id.ageGroup': 1 } }
         ]);
         
-        // Customer retention analysis
+        // Customer retention analysis - sử dụng field 'createdAt'
         const retentionAnalysis = await Order.aggregate([
             {
                 $match: {
@@ -1711,16 +2066,29 @@ router.get('/reports/customers', hasPermission('view_reports'), async (req, res)
             }
         ]);
         
+        const retention = retentionAnalysis[0] || { totalCustomers: 0, returningCustomers: 0, avgDaysBetweenOrders: 0 };
+        const returningRate = retention.totalCustomers > 0 ? (retention.returningCustomers / retention.totalCustomers) * 100 : 0;
+        const newCustomersRate = retention.totalCustomers > 0 ? (1 - (retention.returningCustomers / retention.totalCustomers)) * 100 : 0;
+
         const reportData = {
             dateRange: {
                 startDate: reportStartDate,
                 endDate: reportEndDate
             },
-            statistics: customerStats[0] || { totalCustomers: 0, activeCustomers: 0, avgAge: 0 },
-            registrationTrend,
+            statistics: {
+                totalCustomers: (newCustomerStats[0]?.totalNewCustomers) || 0,
+                activeCustomers: (activeCustomerStats[0]?.totalActiveCustomers) || 0,
+                avgAge: avgAgeAgg[0]?.avgAge || null
+            },
+            registrationTrend: filledRegistration,
             topCustomers,
             demographics,
-            retention: retentionAnalysis[0] || { totalCustomers: 0, returningCustomers: 0, avgDaysBetweenOrders: 0 }
+            retention: {
+                ...retention,
+                avgDaysBetweenOrders: retention.avgDaysBetweenOrders ? Math.round(retention.avgDaysBetweenOrders) : 0,
+                returningRate,
+                newCustomersRate
+            }
         };
         
         // Export functionality
@@ -1738,34 +2106,30 @@ router.get('/reports/customers', hasPermission('view_reports'), async (req, res)
             });
             
             res.setHeader('Content-Type', 'text/csv');
-            res.setHeader('Content-Disposition', `attachment; filename=top-customers-${reportStartDate.toISOString().split('T')[0]}-to-${reportEndDate.toISOString().split('T')[0]}.csv`);
+            res.setHeader('Content-Disposition', 'attachment; filename="customer-report.csv"');
             return res.send(csvContent);
         }
         
-        // Audit log for report generation
-        await logAuditAction(
-            req,
-            'data_export',
-            'System',
-            null,
-            {
-                reportType: 'customer_report',
-                dateRange: `${reportStartDate.toISOString().split('T')[0]} to ${reportEndDate.toISOString().split('T')[0]}`,
-                exportFormat: exportFormat || 'view',
-                recordCount: reportData.statistics.totalCustomers
-            }
-        );
+        console.log('🎯 About to render admin/reports/customers template');
+        console.log('📊 Report data keys:', Object.keys(reportData));
+        console.log('📊 Final report statistics:', {
+            totalCustomers: reportData.statistics.totalCustomers,
+            activeCustomers: reportData.statistics.activeCustomers,
+            newCustomerStatsRaw: newCustomerStats,
+            activeCustomerStatsRaw: activeCustomerStats
+        });
         
         res.render('admin/reports/customers', {
             ...reportData,
-            filters: req.query,
-            title: 'Báo cáo Khách hàng'
+            title: 'Báo cáo khách hàng',
+            layout: 'main'
         });
         
     } catch (error) {
-        console.error('Error generating customer report:', error);
-        req.flash('error_msg', 'Có lỗi khi tạo báo cáo khách hàng');
-        res.redirect('/admin');
+        console.error('❌ Error generating customer report:', error);
+        console.error('❌ Error stack:', error.stack);
+        req.flash('error_msg', 'Có lỗi khi tạo báo cáo khách hàng: ' + error.message);
+        res.redirect('/admin/dashboard');
     }
 });
 

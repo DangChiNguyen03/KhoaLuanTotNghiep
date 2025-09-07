@@ -28,11 +28,22 @@ function parseUserAgent(userAgent) {
 
 // Helper function để lấy IP address
 function getClientIP(req) {
-    return req.ip || 
-           req.connection.remoteAddress || 
-           req.socket.remoteAddress ||
-           (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
-           '127.0.0.1';
+    // Ưu tiên các headers từ proxy/load balancer
+    let ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+             req.headers['x-real-ip'] ||
+             req.headers['x-client-ip'] ||
+             req.connection.remoteAddress || 
+             req.socket.remoteAddress ||
+             (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
+             req.ip ||
+             '127.0.0.1';
+    
+    // Chuyển đổi IPv6 localhost thành IPv4 để dễ đọc
+    if (ip === '::1' || ip === '::ffff:127.0.0.1') {
+        ip = '127.0.0.1';
+    }
+    
+    return ip;
 }
 
 // Middleware để log đăng nhập thành công
@@ -40,7 +51,8 @@ const logSuccessfulLogin = async (req, res, next) => {
     try {
         if (req.user) {
             const ipAddress = getClientIP(req);
-            const userAgent = req.get('User-Agent') || '';
+            const uaHeader = req.get('User-Agent');
+            const userAgent = (uaHeader && uaHeader.trim()) ? uaHeader : 'unknown';
             const deviceInfo = parseUserAgent(userAgent);
             
             // Tạo session ID unique
@@ -49,10 +61,25 @@ const logSuccessfulLogin = async (req, res, next) => {
             // Kiểm tra hoạt động đáng ngờ
             const suspiciousActivity = await LoginLog.detectSuspiciousActivity(req.user._id, ipAddress);
             const riskLevel = suspiciousActivity.length > 0 ? 'high' : 'low';
+
+            // Gửi cảnh báo Slack nếu high risk và có webhook
+            try {
+                if (riskLevel === 'high' && process.env.SLACK_WEBHOOK_URL) {
+                    const fetch = require('node-fetch');
+                    const text = `:warning: High risk login detected for ${req.user.email} from IP ${ipAddress}`;
+                    await fetch(process.env.SLACK_WEBHOOK_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text })
+                    });
+                }
+            } catch (e) {
+                console.warn('Slack notify error (ignored):', e?.message);
+            }
             
-            const loginLog = new LoginLog({
+            const payload = {
                 user: req.user._id,
-                username: req.user.username || req.user.email,
+                username: req.user.username || req.user.email || String(req.user._id),
                 loginTime: new Date(),
                 ipAddress: ipAddress,
                 userAgent: userAgent,
@@ -61,17 +88,24 @@ const logSuccessfulLogin = async (req, res, next) => {
                 deviceInfo: deviceInfo,
                 riskLevel: riskLevel,
                 isActive: true
-            });
+            };
+            console.log('🟢 Attempting to save successful login log with payload:', payload);
             
-            await loginLog.save();
+            const loginLog = new LoginLog(payload);
+            const savedLog = await loginLog.save();
             
             // Lưu loginLogId vào session để có thể update khi logout
-            req.session.loginLogId = loginLog._id;
+            req.session.loginLogId = savedLog._id;
             
-            console.log(`✅ Login logged for user: ${req.user.username || req.user.email} from IP: ${ipAddress}`);
+            console.log(`✅ Login logged (success) for user: ${req.user.username || req.user.email} from IP: ${ipAddress}`);
+            console.log('📝 LoginLog saved with ID:', savedLog._id, 'status:', savedLog.loginStatus);
         }
     } catch (error) {
-        console.error('Error logging successful login:', error);
+        console.error('❌ Error logging successful login. Details:', {
+            message: error?.message,
+            name: error?.name,
+            code: error?.code,
+        }, error);
         // Không throw error để không ảnh hưởng đến quá trình đăng nhập
     }
     
@@ -82,7 +116,8 @@ const logSuccessfulLogin = async (req, res, next) => {
 const logFailedLogin = async (username, req, reason = 'Invalid credentials') => {
     try {
         const ipAddress = getClientIP(req);
-        const userAgent = req.get('User-Agent') || '';
+        const uaHeader = req.get('User-Agent');
+        const userAgent = (uaHeader && uaHeader.trim()) ? uaHeader : 'unknown';
         const deviceInfo = parseUserAgent(userAgent);
         
         // Tìm user để lấy ID (nếu tồn tại)

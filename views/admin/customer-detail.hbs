@@ -170,9 +170,15 @@
                                                 </span>
                                             </td>
                                             <td>
-                                                <span class="badge {{#if (eq this.status 'completed')}}bg-success{{else}}bg-warning{{/if}}">
-                                                    {{#if (eq this.status 'completed')}}Hoàn thành{{else}}Đang xử lý{{/if}}
-                                                </span>
+                                                {{#if (eq this.status 'completed')}}
+                                                    <span class="badge bg-success">Hoàn thành</span>
+                                                {{else if (eq this.status 'cancelled')}}
+                                                    <span class="badge bg-danger">Đã hủy</span>
+                                                {{else if (eq this.status 'processing')}}
+                                                    <span class="badge bg-info">Đang xử lý</span>
+                                                {{else}}
+                                                    <span class="badge bg-warning">Chưa xử lý</span>
+                                                {{/if}}
                                             </td>
                                         </tr>
                                         {{/each}}
