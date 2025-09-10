@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-const methodOverride = require('method-override');
+const methodOverride = require("method-override");
 const exphbs = require("express-handlebars");
 const mongoose = require("mongoose");
 const session = require("express-session");
@@ -21,7 +21,7 @@ const profileRouter = require("./routes/profile");
 const app = express();
 
 // Trust proxy để lấy đúng IP address từ headers
-app.set('trust proxy', true);
+app.set("trust proxy", true);
 
 // Kết nối MongoDB
 mongoose
@@ -64,18 +64,18 @@ const hbs = exphbs.create({
     },
     multiply: (a, b) => a * b,
     add: (a, b) => a + b,
-    sum: function(array, property) {
+    sum: function (array, property) {
       if (!Array.isArray(array)) return 0;
       return array.reduce((total, item) => {
         const value = property ? item[property] : item;
-        return total + (typeof value === 'number' ? value : 0);
+        return total + (typeof value === "number" ? value : 0);
       }, 0);
     },
     // Helper cho pagination và logic
     gt: (a, b) => a > b,
     lt: (a, b) => a < b,
     subtract: (a, b) => a - b,
-    range: function(start, end) {
+    range: function (start, end) {
       const result = [];
       for (let i = start; i <= end; i++) {
         result.push(i);
@@ -83,89 +83,92 @@ const hbs = exphbs.create({
       return result;
     },
     // Helper format ngày giờ chi tiết
-    formatDateTime: function(date) {
+    formatDateTime: function (date) {
       if (!date) return "";
       const d = new Date(date);
       if (isNaN(d.getTime())) return "";
       return d.toLocaleDateString("vi-VN", {
         day: "2-digit",
-        month: "2-digit", 
+        month: "2-digit",
         year: "numeric",
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
       });
     },
     // Helper format ngày cho input date
-    formatDateInput: function(date) {
+    formatDateInput: function (date) {
       if (!date) return "";
       const d = new Date(date);
       if (isNaN(d.getTime())) return "";
-      return d.toISOString().split('T')[0];
+      return d.toISOString().split("T")[0];
     },
     // Helper cắt chuỗi
-    substring: function(str, start, length) {
+    substring: function (str, start, length) {
       if (!str) return "";
       // Convert ObjectId to string if needed
       const stringValue = str.toString();
       return stringValue.substring(start, start + length);
     },
     // Helper section cho layout
-    section: function(name, options) {
+    section: function (name, options) {
       if (!this._sections) this._sections = {};
       this._sections[name] = options.fn(this);
       return null;
     },
     // Helper format currency
-    formatCurrency: function(amount) {
+    formatCurrency: function (amount) {
       if (!amount) return "0 ₫";
-      return new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND'
+      return new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
       }).format(amount);
     },
     // Helper math operations
     add: (a, b) => a + b,
     subtract: (a, b) => a - b,
     multiply: (a, b) => a * b,
-    divide: (a, b) => b !== 0 ? a / b : 0,
+    divide: (a, b) => (b !== 0 ? a / b : 0),
     gt: (a, b) => a > b,
     lt: (a, b) => a < b,
     gte: (a, b) => a >= b,
     lte: (a, b) => a <= b,
     // Helper for JSON stringify
-    json: function(context) {
+    json: function (context) {
       return JSON.stringify(context);
     },
     // Helper for date formatting
-    formatDate: function(date) {
-      if (!date) return '';
-      return new Date(date).toLocaleDateString('vi-VN');
+    formatDate: function (date) {
+      if (!date) return "";
+      return new Date(date).toLocaleDateString("vi-VN");
     },
-    formatDateTime: function(date) {
-      if (!date) return '';
-      return new Date(date).toLocaleString('vi-VN');
+    formatDateTime: function (date) {
+      if (!date) return "";
+      return new Date(date).toLocaleString("vi-VN");
     },
-    formatDateInput: function(date) {
-      if (!date) return '';
-      return new Date(date).toISOString().split('T')[0];
+    formatDateInput: function (date) {
+      if (!date) return "";
+      return new Date(date).toISOString().split("T")[0];
     },
-    calculateAge: function(birthday) {
-      if (!birthday) return '';
+    calculateAge: function (birthday) {
+      if (!birthday) return "";
       const today = new Date();
       const birthDate = new Date(birthday);
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
-      
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birthDate.getDate())
+      ) {
         age--;
       }
-      
-      return age > 0 ? age + ' tuổi' : 'Không hợp lệ';
+
+      return age > 0 ? age + " tuổi" : "Không hợp lệ";
     },
     // Helper for string operations
-    truncate: function(str, length) {
-      if (!str) return '';
-      return str.length > length ? str.substring(0, length) + '...' : str;
+    truncate: function (str, length) {
+      if (!str) return "";
+      return str.length > length ? str.substring(0, length) + "..." : str;
     },
   },
   runtimeOptions: {
@@ -177,14 +180,14 @@ const hbs = exphbs.create({
 app.engine(".hbs", hbs.engine);
 app.set("view engine", ".hbs");
 app.set("views", path.join(__dirname, "views"));
-console.log('📁 Views directory:', path.join(__dirname, "views"));
-console.log('📁 Current directory:', __dirname);
+console.log("📁 Views directory:", path.join(__dirname, "views"));
+console.log("📁 Current directory:", __dirname);
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
-app.use(methodOverride('_method'));
+app.use(methodOverride("_method"));
 app.use(logger);
 
 // Session
@@ -224,7 +227,7 @@ app.use("/api/chatbot", chatbotRoutes);
 app.use("/products", productRoutes);
 
 // Admin routes with authentication
-const { ensureAuthenticated } = require('./config/auth');
+const { ensureAuthenticated } = require("./config/auth");
 app.use("/admin", ensureAuthenticated, adminRoutes);
 
 app.use("/cart", cartRoutes);
@@ -248,22 +251,22 @@ const server = app.listen(PORT, () => {
 });
 
 // Handle server errors
-server.on('error', (error) => {
-  if (error.syscall !== 'listen') {
+server.on("error", (error) => {
+  if (error.syscall !== "listen") {
     throw error;
   }
 
-  const bind = typeof PORT === 'string' ? `Pipe ${PORT}` : `Port ${PORT}`;
+  const bind = typeof PORT === "string" ? `Pipe ${PORT}` : `Port ${PORT}`;
 
   // Handle specific listen errors with friendly messages
   switch (error.code) {
-    case 'EACCES':
+    case "EACCES":
       console.error(`${bind} requires elevated privileges`);
       process.exit(1);
       break;
-    case 'EADDRINUSE':
+    case "EADDRINUSE":
       console.error(`${bind} is already in use`);
-      console.log('Attempting to use port 3001...');
+      console.log("Attempting to use port 3001...");
       const altPort = 3001;
       app.listen(altPort, () => {
         console.log(`Server running on port ${altPort}`);
