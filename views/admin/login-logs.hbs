@@ -47,7 +47,7 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
-                                    <h4>{{suspiciousLogs.length}}</h4>
+                                    <h4>{{#if suspiciousLogs.length}}{{suspiciousLogs.length}}{{else}}0{{/if}}</h4>
                                     <p class="mb-0">Hoạt động đáng ngờ (24h)</p>
                                 </div>
                                 <div class="align-self-center">
