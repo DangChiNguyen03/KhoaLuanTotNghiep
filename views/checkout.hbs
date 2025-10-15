@@ -112,11 +112,39 @@
                     </tbody>
                     <tfoot>
                         <tr>
+                            <td colspan="4" class="text-end"><strong>Tạm tính:</strong></td>
+                            <td><strong>{{formatPrice originalPrice}}</strong></td>
+                        </tr>
+                        {{#if appliedVoucher}}
+                        <tr class="text-success">
+                            <td colspan="4" class="text-end"><strong>Giảm giá ({{appliedVoucher}}):</strong></td>
+                            <td><strong>-{{formatPrice discountAmount}}</strong></td>
+                        </tr>
+                        {{/if}}
+                        <tr class="fw-bold">
                             <td colspan="4" class="text-end"><strong>Tổng cộng:</strong></td>
-                            <td><strong>{{formatPrice totalPrice}}</strong></td>
+                            <td><strong>{{formatPrice finalPrice}}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+
+            <!-- Voucher Selection Section -->
+            <div class="mb-4">
+                <h4 class="mb-3">
+                    <i class="fas fa-ticket-alt me-2"></i>Chọn mã giảm giá
+                    <button class="btn btn-sm btn-outline-secondary ms-2" onclick="refreshVouchers()">
+                        <i class="fas fa-sync-alt"></i> Làm mới
+                    </button>
+                </h4>
+                <div id="voucherCards" class="row">
+                    <div class="col-12 text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Đang tải...</span>
+                        </div>
+                        <p class="mt-2">Đang tải danh sách voucher...</p>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="col-md-4">
@@ -181,14 +209,15 @@ function togglePaymentDetails() {
 
 document.addEventListener('DOMContentLoaded', function() {
     togglePaymentDetails();
+    loadAvailableVouchers();
 
     const cashAmountInput = document.getElementById('cashAmount');
-    const totalPrice = {{totalPrice}};
+    const finalPrice = {{finalPrice}};
     const changeAmountDiv = document.getElementById('changeAmount');
 
     cashAmountInput.addEventListener('input', function() {
         const cash = parseInt(this.value) || 0;
-        const change = cash - totalPrice;
+        const change = cash - finalPrice;
         if (change >= 0) {
             changeAmountDiv.innerHTML = `<strong>Tiền thừa:</strong> ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(change)}`;
         } else {
@@ -200,11 +229,162 @@ document.addEventListener('DOMContentLoaded', function() {
         const paymentMethod = document.getElementById('paymentMethod').value;
         if (paymentMethod === 'cash') {
             const cash = parseInt(cashAmountInput.value) || 0;
-            if (cash < totalPrice) {
+            if (cash < finalPrice) {
                 e.preventDefault();
                 alert('Số tiền khách đưa không đủ để thanh toán!');
             }
         }
     });
 });
+
+// Voucher management functions
+let selectedVoucher = null;
+
+async function loadAvailableVouchers() {
+    try {
+        const response = await fetch('/cart/available-vouchers');
+        const data = await response.json();
+        displayVouchers(data.vouchers);
+    } catch (error) {
+        console.error('Error loading vouchers:', error);
+        document.getElementById('voucherCards').innerHTML = `
+            <div class="col-12 text-center text-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Không thể tải danh sách voucher</p>
+            </div>
+        `;
+    }
+}
+
+function displayVouchers(vouchers) {
+    const container = document.getElementById('voucherCards');
+    
+    if (vouchers.length === 0) {
+        container.innerHTML = `
+            <div class="col-12 text-center text-muted">
+                <i class="fas fa-ticket-alt fa-2x mb-2"></i>
+                <p>Không có voucher khả dụng</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    vouchers.forEach(voucher => {
+        const isApplicable = voucher.isApplicable;
+        const cardClass = isApplicable ? 'border-success' : 'border-secondary';
+        const badgeClass = isApplicable ? 'bg-success' : 'bg-secondary';
+        const buttonClass = isApplicable ? 'btn-success' : 'btn-secondary';
+        const disabled = isApplicable ? '' : 'disabled';
+
+        // Format discount display
+        let discountText = '';
+        if (voucher.discountType === 'percentage') {
+            discountText = `Giảm ${voucher.discountValue}%`;
+        } else if (voucher.discountType === 'fixed_amount') {
+            discountText = `Giảm ${new Intl.NumberFormat('vi-VN').format(voucher.discountValue)}đ`;
+        } else if (voucher.discountType === 'special_day_fixed_price') {
+            discountText = `Giá cố định ${new Intl.NumberFormat('vi-VN').format(voucher.fixedPrice)}đ`;
+        }
+
+        // Format time conditions
+        let timeText = '';
+        if (voucher.startTime !== null && voucher.endTime !== null) {
+            timeText = `<small class="text-muted"><i class="fas fa-clock"></i> ${voucher.startTime}h - ${voucher.endTime}h</small>`;
+        }
+
+        html += `
+            <div class="col-md-6 mb-3">
+                <div class="card h-100 ${cardClass}" style="cursor: ${isApplicable ? 'pointer' : 'not-allowed'};">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-0">
+                                <span class="badge ${badgeClass}">${voucher.code}</span>
+                            </h6>
+                            ${isApplicable && voucher.potentialDiscount > 0 ? 
+                                `<small class="text-success fw-bold">-${new Intl.NumberFormat('vi-VN').format(voucher.potentialDiscount)}đ</small>` : 
+                                ''
+                            }
+                        </div>
+                        <p class="card-text small mb-2">${voucher.description}</p>
+                        <div class="mb-2">
+                            <span class="badge bg-primary">${discountText}</span>
+                            ${voucher.applicableCategory ? `<span class="badge bg-info">${voucher.applicableCategory}</span>` : ''}
+                        </div>
+                        ${timeText}
+                        ${!isApplicable ? `<small class="text-danger"><i class="fas fa-info-circle"></i> ${voucher.reason}</small>` : ''}
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn ${buttonClass} btn-sm w-100" ${disabled} 
+                                onclick="selectVoucher('${voucher.code}', this)" 
+                                data-voucher-code="${voucher.code}">
+                            ${isApplicable ? 'Chọn voucher' : 'Không khả dụng'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+async function selectVoucher(voucherCode, buttonElement) {
+    // Reset previous selection
+    document.querySelectorAll('[data-voucher-code]').forEach(btn => {
+        if (btn.classList.contains('btn-warning')) {
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-success');
+            btn.textContent = 'Chọn voucher';
+        }
+    });
+
+    // Apply new selection
+    buttonElement.classList.remove('btn-success');
+    buttonElement.classList.add('btn-warning');
+    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang áp dụng...';
+
+    try {
+        const response = await fetch('/cart/apply-voucher', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ voucherCode: voucherCode })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            selectedVoucher = voucherCode;
+            buttonElement.innerHTML = '<i class="fas fa-check"></i> Đã chọn';
+            
+            // Show success message and reload page to update prices
+            alert('Áp dụng voucher thành công!');
+            window.location.reload();
+        } else {
+            throw new Error(data.message);
+        }
+    } catch (error) {
+        console.error('Error applying voucher:', error);
+        alert('Lỗi khi áp dụng voucher: ' + error.message);
+        
+        // Reset button
+        buttonElement.classList.remove('btn-warning');
+        buttonElement.classList.add('btn-success');
+        buttonElement.textContent = 'Chọn voucher';
+    }
+}
+
+function refreshVouchers() {
+    document.getElementById('voucherCards').innerHTML = `
+        <div class="col-12 text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Đang tải...</span>
+            </div>
+            <p class="mt-2">Đang làm mới danh sách voucher...</p>
+        </div>
+    `;
+    loadAvailableVouchers();
+}
 </script>

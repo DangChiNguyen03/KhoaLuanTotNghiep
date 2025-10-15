@@ -9,9 +9,7 @@
                     <button class="btn btn-info me-2" onclick="loadSuspiciousActivity()">
                         <i class="fas fa-exclamation-triangle me-1"></i>Hoạt động đáng ngờ
                     </button>
-                    <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cleanupModal">
-                        <i class="fas fa-broom me-1"></i>Dọn dẹp Logs
-                    </button>
+                    <!-- Auto cleanup runs every 24 hours -->
                 </div>
             </div>
 
@@ -236,34 +234,6 @@
     </div>
 </div>
 
-<!-- Cleanup Modal -->
-<div class="modal fade" id="cleanupModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Dọn dẹp Audit Logs</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="POST" action="/admin/audit-logs/cleanup">
-                <div class="modal-body">
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Thao tác này sẽ xóa vĩnh viễn các bản ghi audit log cũ. Không thể khôi phục!
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Xóa các bản ghi cũ hơn (ngày)</label>
-                        <input type="number" class="form-control" name="days" value="90" min="30" max="365" required>
-                        <div class="form-text">Khuyến nghị: giữ lại ít nhất 90 ngày để audit</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-warning">Xóa Logs Cũ</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 <!-- Suspicious Activity Modal -->
 <div class="modal fade" id="suspiciousModal" tabindex="-1">
@@ -284,6 +254,23 @@
 </div>
 
 <script>
+// Helper function for date formatting (matching server-side helper)
+function formatDateTimeJS(date) {
+    if (!date) return "";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "";
+    
+    // Use local time for datetime (matching server-side helper)
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0'); // getMonth() returns 0-11
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+}
+
 // Show details function
 function showDetails(logId) {
     // Find the log data from the current page
@@ -296,7 +283,7 @@ function showDetails(logId) {
                     <h6>Thông tin cơ bản</h6>
                     <table class="table table-sm">
                         <tr><td><strong>ID:</strong></td><td>${logData._id}</td></tr>
-                        <tr><td><strong>Thời gian:</strong></td><td>${new Date(logData.timestamp).toLocaleString('vi-VN')}</td></tr>
+                        <tr><td><strong>Thời gian:</strong></td><td>${formatDateTimeJS(logData.timestamp)}</td></tr>
                         <tr><td><strong>Người dùng:</strong></td><td>${logData.user ? logData.user.name + ' (' + logData.user.employeeId + ')' : 'System'}</td></tr>
                         <tr><td><strong>Hành động:</strong></td><td>${logData.action}</td></tr>
                         <tr><td><strong>Tài nguyên:</strong></td><td>${logData.resourceType}</td></tr>
@@ -378,9 +365,9 @@ async function loadSuspiciousActivity() {
                             <td><span class="badge bg-danger">${activity.actionCount}</span></td>
                             <td>
                                 <small>
-                                    ${new Date(activity.firstAction).toLocaleString('vi-VN')}<br>
+                                    ${formatDateTimeJS(activity.firstAction)}<br>
                                     đến<br>
-                                    ${new Date(activity.lastAction).toLocaleString('vi-VN')}<br>
+                                    ${formatDateTimeJS(activity.lastAction)}<br>
                                     (${Math.round(activity.timeSpan)} phút)
                                 </small>
                             </td>

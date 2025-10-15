@@ -33,7 +33,7 @@
                                 <label class="form-label">Đến ngày</label>
                                 <input type="date" class="form-control" name="endDate" value="{{formatDateInput dateRange.endDate}}">
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <label class="form-label">Danh mục</label>
                                 <select class="form-select" name="category">
                                     <option value="">Tất cả</option>
@@ -42,15 +42,7 @@
                                     {{/each}}
                                 </select>
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Trạng thái</label>
-                                <select class="form-select" name="status">
-                                    <option value="">Tất cả</option>
-                                    <option value="available" {{#if (eq filters.status 'available')}}selected{{/if}}>Có sẵn</option>
-                                    <option value="unavailable" {{#if (eq filters.status 'unavailable')}}selected{{/if}}>Hết hàng</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2 d-flex align-items-end">
+                            <div class="col-md-3 d-flex align-items-end">
                                 <button type="submit" class="btn btn-primary me-2">
                                     <i class="fas fa-sync me-1"></i>Cập nhật
                                 </button>
@@ -70,12 +62,12 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
-                                    <h4>{{statistics.totalProducts}}</h4>
-                                    <p class="mb-0">Tổng sản phẩm</p>
-                                    <small>Trong hệ thống</small>
+                                    <h4>{{statistics.totalProductsSold}}</h4>
+                                    <p class="mb-0">Sản phẩm đã bán</p>
+                                    <small>{{formatDate dateRange.startDate}} - {{formatDate dateRange.endDate}}</small>
                                 </div>
                                 <div class="align-self-center">
-                                    <i class="fas fa-box fa-2x"></i>
+                                    <i class="fas fa-shopping-cart fa-2x"></i>
                                 </div>
                             </div>
                         </div>
@@ -86,12 +78,12 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
-                                    <h4>{{statistics.availableProducts}}</h4>
-                                    <p class="mb-0">Sản phẩm có sẵn</p>
-                                    <small>Đang bán</small>
+                                    <h4>{{formatCurrency statistics.totalRevenue}}</h4>
+                                    <p class="mb-0">Doanh thu sản phẩm</p>
+                                    <small>Từ {{statistics.totalOrders}} đơn hàng</small>
                                 </div>
                                 <div class="align-self-center">
-                                    <i class="fas fa-check-circle fa-2x"></i>
+                                    <i class="fas fa-money-bill-wave fa-2x"></i>
                                 </div>
                             </div>
                         </div>
@@ -102,12 +94,12 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
-                                    <h4>{{statistics.unavailableProducts}}</h4>
-                                    <p class="mb-0">Hết hàng</p>
-                                    <small>Cần bổ sung</small>
+                                    <h4>{{statistics.uniqueProductCount}}</h4>
+                                    <p class="mb-0">Sản phẩm khác nhau</p>
+                                    <small>Được bán trong kỳ</small>
                                 </div>
                                 <div class="align-self-center">
-                                    <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                    <i class="fas fa-layer-group fa-2x"></i>
                                 </div>
                             </div>
                         </div>
@@ -118,12 +110,12 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
-                                    <h4>{{formatCurrency statistics.avgPrice}}</h4>
-                                    <p class="mb-0">Giá trung bình</p>
-                                    <small>Của sản phẩm</small>
+                                    <h4>{{formatCurrency statistics.avgRevenuePerOrder}}</h4>
+                                    <p class="mb-0">TB doanh thu/đơn</p>
+                                    <small>Giá trị trung bình</small>
                                 </div>
                                 <div class="align-self-center">
-                                    <i class="fas fa-tag fa-2x"></i>
+                                    <i class="fas fa-calculator fa-2x"></i>
                                 </div>
                             </div>
                         </div>
@@ -131,28 +123,84 @@
                 </div>
             </div>
 
-            <!-- Charts Row -->
+            <!-- Charts Overview Section -->
             <div class="row mb-4">
-                <!-- Product Trends Chart -->
-                <div class="col-md-8">
+                <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Xu hướng bán hàng theo ngày</h5>
+                            <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Doanh thu theo danh mục</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="productTrendsChart" height="100"></canvas>
+                            {{#if categoryRevenue}}
+                            <!-- Category Revenue Bar Chart -->
+                            <div class="category-bar-chart-container">
+                                {{#each categoryRevenue}}
+                                <div class="category-bar-item mb-3" data-revenue="{{this.totalRevenue}}" data-total="{{../totalCategoryRevenue}}">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <div class="d-flex align-items-center">
+                                            <div class="category-color-indicator category-color-{{@index}} me-2"></div>
+                                            <span class="fw-bold">{{this._id}}</span>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-success">{{formatCurrency this.totalRevenue}}</span><br>
+                                            <small class="text-muted">{{round this.percentage 1}}%</small>
+                                        </div>
+                                    </div>
+                                    <div class="progress" style="height: 25px;">
+                                        <div class="progress-bar category-progress-{{@index}}" role="progressbar" 
+                                             style="width: {{this.percentage}}%">
+                                            <span class="progress-text">{{this.totalQuantity}} món</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{/each}}
+                            </div>
+                            {{else}}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-chart-bar fa-3x mb-3"></i><br>
+                                Không có dữ liệu
+                            </div>
+                            {{/if}}
                         </div>
                     </div>
                 </div>
-                
-                <!-- Category Performance Chart -->
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Hiệu suất danh mục</h5>
+                            <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Top 5 sản phẩm bán chạy</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="categoryChart" height="200"></canvas>
+                            <div class="bar-chart-container">
+                                {{#each top5Products}}
+                                <div class="bar-item mb-3" data-quantity="{{this.totalQuantity}}" data-total="{{../totalQuantityTop5}}">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <div class="d-flex align-items-center">
+                                            {{#if this.productImage}}
+                                            <img src="{{this.productImage}}" alt="{{this.productName}}" 
+                                                 class="rounded me-2" style="width: 30px; height: 30px; object-fit: cover;">
+                                            {{/if}}
+                                            <span class="fw-bold">{{this.productName}}</span>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-primary">{{this.totalQuantity}} món</span><br>
+                                            <small class="text-muted percentage-text">{{round this.percentage 1}}%</small>
+                                        </div>
+                                    </div>
+                                    <div class="progress" style="height: 25px;">
+                                        <div class="progress-bar bg-gradient" role="progressbar" 
+                                             style="width: {{this.percentage}}%">
+                                            <span class="progress-text">{{formatCurrency this.totalRevenue}}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{/each}}
+                                {{#unless top5Products}}
+                                <div class="text-center text-muted py-4">
+                                    <i class="fas fa-chart-bar fa-3x mb-3"></i><br>
+                                    Không có dữ liệu
+                                </div>
+                                {{/unless}}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -218,241 +266,12 @@
                 </div>
             </div>
 
-            <!-- Category Performance & Low Stock -->
-            <div class="row mb-4">
-                <!-- Category Performance -->
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Hiệu suất theo danh mục</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Danh mục</th>
-                                            <th>Số lượng bán</th>
-                                            <th>Doanh thu</th>
-                                            <th>Số sản phẩm</th>
-                                            <th>Giá TB</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {{#each categoryPerformance}}
-                                        <tr>
-                                            <td><strong>{{this.category}}</strong></td>
-                                            <td><span class="badge bg-primary">{{this.totalQuantity}}</span></td>
-                                            <td><strong class="text-success">{{formatCurrency this.totalRevenue}}</strong></td>
-                                            <td><span class="text-info">{{this.uniqueProductCount}}</span></td>
-                                            <td><span class="text-muted">{{formatCurrency this.avgPrice}}</span></td>
-                                        </tr>
-                                        {{/each}}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Low Stock Products -->
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0 text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Sản phẩm sắp hết</h5>
-                        </div>
-                        <div class="card-body">
-                            {{#if lowStockProducts}}
-                                {{#each lowStockProducts}}
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <div>
-                                        <strong>{{this.name}}</strong>
-                                        <br><small class="text-muted">{{this.category}}</small>
-                                    </div>
-                                    <div class="text-end">
-                                        <span class="badge {{#if (lt this.stock 5)}}bg-danger{{else}}bg-warning{{/if}}">
-                                            {{this.stock}} còn lại
-                                        </span>
-                                    </div>
-                                </div>
-                                {{#unless @last}}<hr>{{/unless}}
-                                {{/each}}
-                            {{else}}
-                                <div class="text-center text-muted">
-                                    <i class="fas fa-check-circle fa-3x mb-3"></i>
-                                    <p>Tất cả sản phẩm đều có đủ hàng!</p>
-                                </div>
-                            {{/if}}
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Price Analysis -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-calculator me-2"></i>Phân tích giá theo danh mục</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Danh mục</th>
-                                    <th>Số sản phẩm</th>
-                                    <th>Giá thấp nhất</th>
-                                    <th>Giá cao nhất</th>
-                                    <th>Giá trung bình</th>
-                                    <th>Khoảng giá</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {{#each priceAnalysis}}
-                                <tr>
-                                    <td><strong>{{this._id}}</strong></td>
-                                    <td><span class="badge bg-info">{{this.productCount}}</span></td>
-                                    <td><span class="text-success">{{formatCurrency this.minPrice}}</span></td>
-                                    <td><span class="text-danger">{{formatCurrency this.maxPrice}}</span></td>
-                                    <td><strong>{{formatCurrency this.avgPrice}}</strong></td>
-                                    <td>
-                                        <div class="progress" style="height: 20px;">
-                                            <div class="progress-bar bg-gradient" role="progressbar" style="width: 100%">
-                                                {{formatCurrency (subtract this.maxPrice this.minPrice)}}
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {{/each}}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Products -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Sản phẩm mới thêm gần đây</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        {{#each recentProducts}}
-                        <div class="col-md-6 col-lg-4 mb-3">
-                            <div class="card h-100">
-                                {{#if this.image}}
-                                    <img src="{{this.image}}" class="card-img-top" alt="{{this.name}}" style="height: 150px; object-fit: cover;">
-                                {{/if}}
-                                <div class="card-body">
-                                    <h6 class="card-title">{{this.name}}</h6>
-                                    <p class="card-text">
-                                        <span class="badge bg-secondary">{{this.category}}</span>
-                                        <br><strong class="text-success">{{formatCurrency this.price}}</strong>
-                                        <br><small class="text-muted">Thêm: {{formatDate this.createdAt}}</small>
-                                    </p>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span class="badge {{#if this.isAvailable}}bg-success{{else}}bg-danger{{/if}}">
-                                            {{#if this.isAvailable}}Có sẵn{{else}}Hết hàng{{/if}}
-                                        </span>
-                                        <small class="text-muted">Stock: {{this.stock}}</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {{/each}}
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script>
-// Product Trends Chart
-const productTrendsData = {{{json productTrends}}};
-const trendLabels = productTrendsData.map(item => item.date);
-const quantityData = productTrendsData.map(item => item.totalQuantity);
-const revenueData = productTrendsData.map(item => item.totalRevenue);
-
-const trendsCtx = document.getElementById('productTrendsChart').getContext('2d');
-new Chart(trendsCtx, {
-    type: 'line',
-    data: {
-        labels: trendLabels,
-        datasets: [{
-            label: 'Số lượng bán',
-            data: quantityData,
-            borderColor: 'rgb(75, 192, 192)',
-            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-            yAxisID: 'y'
-        }, {
-            label: 'Doanh thu (VND)',
-            data: revenueData,
-            borderColor: 'rgb(255, 99, 132)',
-            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-            yAxisID: 'y1'
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                beginAtZero: true
-            },
-            y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                beginAtZero: true,
-                grid: {
-                    drawOnChartArea: false,
-                }
-            }
-        }
-    }
-});
-
-// Category Performance Chart
-const categoryData = {{{json categoryPerformance}}};
-const categoryLabels = categoryData.map(item => item.category);
-const categoryRevenue = categoryData.map(item => item.totalRevenue);
-
-const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-new Chart(categoryCtx, {
-    type: 'doughnut',
-    data: {
-        labels: categoryLabels,
-        datasets: [{
-            data: categoryRevenue,
-            backgroundColor: [
-                '#FF6384',
-                '#36A2EB',
-                '#FFCE56',
-                '#4BC0C0',
-                '#9966FF',
-                '#FF9F40',
-                '#FF6384',
-                '#C9CBCF'
-            ]
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            }
-        }
-    }
-});
-</script>
+<!-- Simple Charts - No JavaScript needed! -->
 
 {{#section 'styles'}}
 <style>
@@ -471,5 +290,61 @@ new Chart(categoryCtx, {
 .card-img-top {
     border-radius: 0.375rem 0.375rem 0 0;
 }
+
+/* CSS Charts */
+.category-bar-chart-container {
+    padding: 10px 0;
+}
+
+.category-bar-item {
+    margin-bottom: 15px;
+}
+
+.category-color-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.category-color-0 { background: #FF6384; }
+.category-color-1 { background: #36A2EB; }
+.category-color-2 { background: #FFCE56; }
+.category-color-3 { background: #4BC0C0; }
+
+.category-progress-0 { background: linear-gradient(45deg, #FF6384, #FF8FA3) !important; }
+.category-progress-1 { background: linear-gradient(45deg, #36A2EB, #54B4F0) !important; }
+.category-progress-2 { background: linear-gradient(45deg, #FFCE56, #FFD93D) !important; }
+.category-progress-3 { background: linear-gradient(45deg, #4BC0C0, #6ECFCF) !important; }
+
+.bar-chart-container {
+    padding: 10px 0;
+}
+
+.bar-item .progress-bar {
+    transition: width 1.5s ease-in-out;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    position: relative;
+}
+
+.bar-item .progress-bar.bg-gradient {
+    background: linear-gradient(45deg, #007bff, #0056b3) !important;
+}
+
+.progress-text {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+}
+
+.percentage-text {
+    font-weight: bold;
+    color: #007bff !important;
+}
 </style>
 {{/section}}
+

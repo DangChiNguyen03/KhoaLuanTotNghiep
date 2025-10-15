@@ -13,16 +13,6 @@
                         <a href="?{{#each filters}}{{@key}}={{this}}&{{/each}}exportFormat=csv" class="btn btn-outline-success">
                             <i class="fas fa-file-csv me-1"></i>Export CSV
                         </a>
-                        <form method="POST" action="/admin/cleanup-payments" class="d-inline">
-                            <button type="submit" class="btn btn-warning" onclick="return confirm('Bạn có chắc muốn cập nhật tất cả payment cũ thành trạng thái hoàn thành?')">
-                                <i class="fas fa-sync me-1"></i>Sửa Payment Cũ
-                            </button>
-                        </form>
-                        <form method="POST" action="/admin/fix/payment-status" class="d-inline">
-                            <button type="submit" class="btn btn-info" onclick="return confirm('Bạn có chắc muốn đồng bộ trạng thái Payment với Order? Điều này sẽ cập nhật các payment thất bại thành thành công nếu đơn hàng đã hoàn thành.')">
-                                <i class="fas fa-sync-alt me-1"></i>Đồng bộ Payment
-                            </button>
-                        </form>
                     </div>
                 </div>
             </div>
@@ -85,7 +75,7 @@
                                 <div>
                                     <h4>{{statistics.totalPayments}}</h4>
                                     <p class="mb-0">Tổng giao dịch</p>
-                                    <small>Trong khoảng thời gian</small>
+                                    <small>{{formatDate dateRange.startDate}} - {{formatDate dateRange.endDate}}</small>
                                 </div>
                                 <div class="align-self-center">
                                     <i class="fas fa-receipt fa-2x"></i>
@@ -101,7 +91,7 @@
                                 <div>
                                     <h4>{{formatCurrency statistics.totalAmount}}</h4>
                                     <p class="mb-0">Tổng doanh thu</p>
-                                    <small>Từ thanh toán</small>
+                                    <small>{{statistics.successfulPayments}} giao dịch thành công</small>
                                 </div>
                                 <div class="align-self-center">
                                     <i class="fas fa-money-bill-wave fa-2x"></i>
@@ -131,7 +121,7 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
-                                    <h4>{{#if statistics.totalPayments}}{{#divide statistics.successfulPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%{{else}}0%{{/if}}</h4>
+                                    <h4>{{statistics.successRate}}%</h4>
                                     <p class="mb-0">Tỷ lệ thành công</p>
                                     <small>{{statistics.successfulPayments}}/{{statistics.totalPayments}}</small>
                                 </div>
@@ -144,14 +134,14 @@
                 </div>
             </div>
 
-            <!-- Payment Status Breakdown -->
+            <!-- Payment Status & Methods Breakdown -->
             <div class="row mb-4">
-                <div class="col-md-4">
-                    <div class="card">
+                <div class="col-md-6">
+                    <div class="card h-100">
                         <div class="card-header">
                             <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Trạng thái thanh toán</h5>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body d-flex flex-column justify-content-center">
                             <div class="row text-center">
                                 <div class="col-4">
                                     <h3 class="text-success">{{statistics.successfulPayments}}</h3>
@@ -169,13 +159,13 @@
                             {{#if (gt statistics.totalPayments 0)}}
                             <div class="progress mt-3" style="height: 25px;">
                                 <div class="progress-bar bg-success" style="width: {{#divide statistics.successfulPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%">
-                                    {{#divide statistics.successfulPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%
+                                    {{#if (gt (divide statistics.successfulPayments statistics.totalPayments) 0.1)}}{{round (multiply (divide statistics.successfulPayments statistics.totalPayments) 100) 1}}%{{/if}}
                                 </div>
                                 <div class="progress-bar bg-warning" style="width: {{#divide statistics.pendingPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%">
-                                    {{#divide statistics.pendingPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%
+                                     {{#if (gt (divide statistics.pendingPayments statistics.totalPayments) 0.1)}}{{round (multiply (divide statistics.pendingPayments statistics.totalPayments) 100) 1}}%{{/if}}
                                 </div>
                                 <div class="progress-bar bg-danger" style="width: {{#divide statistics.failedPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%">
-                                    {{#divide statistics.failedPayments statistics.totalPayments}}{{multiply this 100}}{{/divide}}%
+                                     {{#if (gt (divide statistics.failedPayments statistics.totalPayments) 0.1)}}{{round (multiply (divide statistics.failedPayments statistics.totalPayments) 100) 1}}%{{/if}}
                                 </div>
                             </div>
                             {{/if}}
@@ -183,51 +173,29 @@
                     </div>
                 </div>
                 
-                <!-- Processing Time Stats -->
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Thời gian xử lý</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row text-center">
-                                <div class="col-4">
-                                    <h5 class="text-success">{{#if processingTime.avgProcessingTime}}{{processingTime.avgProcessingTime}}s{{else}}N/A{{/if}}</h5>
-                                    <small>Trung bình</small>
-                                </div>
-                                <div class="col-4">
-                                    <h5 class="text-info">{{#if processingTime.minProcessingTime}}{{processingTime.minProcessingTime}}s{{else}}N/A{{/if}}</h5>
-                                    <small>Nhanh nhất</small>
-                                </div>
-                                <div class="col-4">
-                                    <h5 class="text-warning">{{#if processingTime.maxProcessingTime}}{{processingTime.maxProcessingTime}}s{{else}}N/A{{/if}}</h5>
-                                    <small>Chậm nhất</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Payment Methods Stats -->
-                <div class="col-md-4">
-                    <div class="card">
+                <div class="col-md-6">
+                    <div class="card h-100">
                         <div class="card-header">
                             <h5 class="mb-0"><i class="fas fa-credit-card me-2"></i>Phương thức phổ biến</h5>
                         </div>
-                        <div class="card-body">
-                            {{#each paymentMethodStats}}
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <div>
-                                    <strong>{{this._id}}</strong>
-                                    <br><small>{{this.count}} giao dịch</small>
+                        <div class="card-body d-flex flex-column justify-content-center">
+                            {{#if paymentMethodStats}}
+                                {{#each paymentMethodStats}}
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div>
+                                        <strong>{{this._id}}</strong>
+                                        <br><small>{{this.count}} giao dịch</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="text-success">{{formatCurrency this.totalAmount}}</div>
+                                        <small class="text-muted">{{round (multiply this.successRate 100) 1}}% thành công</small>
+                                    </div>
                                 </div>
-                                <div class="text-end">
-                                    <div class="text-success">{{formatCurrency this.totalAmount}}</div>
-                                    <small class="text-muted">{{#multiply this.successRate 100}}{{this}}{{/multiply}}% thành công</small>
-                                </div>
-                            </div>
-                            {{#unless @last}}<hr>{{/unless}}
-                            {{/each}}
+                                {{#unless @last}}<hr class="my-2">{{/unless}}
+                                {{/each}}
+                            {{else}}
+                                <p class="text-muted text-center mb-0">Không có dữ liệu</p>
+                            {{/if}}
                         </div>
                     </div>
                 </div>
@@ -240,6 +208,7 @@
                     <div class="card">
                         <div class="card-header">
                             <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Xu hướng thanh toán theo ngày</h5>
+                            <small class="text-muted">{{formatDate dateRange.startDate}} - {{formatDate dateRange.endDate}}</small>
                         </div>
                         <div class="card-body">
                             <canvas id="paymentTrendsChart" height="100"></canvas>
@@ -251,7 +220,8 @@
                 <div class="col-md-4">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Doanh thu theo giờ</h5>
+                            <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Doanh thu theo giờ hôm nay</h5>
+                            <small class="text-muted">{{formatDate today}}</small>
                         </div>
                         <div class="card-body">
                             <canvas id="hourlyRevenueChart" height="200"></canvas>
@@ -277,7 +247,6 @@
                                     <th>Số tiền</th>
                                     <th>Phương thức</th>
                                     <th>Trạng thái</th>
-                                    <th>Thời gian xử lý</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -320,15 +289,6 @@
                                              {{else if (eq this.status 'pending')}}Đang xử lý
                                              {{else}}Thất bại{{/if}}
                                         </span>
-                                    </td>
-                                    <td>
-                                        <small>
-                                            {{#if this.processedAt}}
-                                                {{#divide (subtract this.processedAt this.createdAt) 1000}}{{this}}s{{/divide}}
-                                            {{else}}
-                                                N/A
-                                            {{/if}}
-                                        </small>
                                     </td>
                                 </tr>
                                 {{/each}}
@@ -397,54 +357,100 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-// Payment Trends Chart
+// Payment Trends Chart - Improved with dynamic grouping
 const paymentTrendsData = {{{json paymentTrends}}};
-const trendLabels = [...new Set(paymentTrendsData.map(item => item._id.date))].sort();
-const successData = trendLabels.map(date => {
-    const item = paymentTrendsData.find(d => d._id.date === date && d._id.status === 'completed');
-    return item ? item.amount : 0;
-});
-const failedData = trendLabels.map(date => {
-    const item = paymentTrendsData.find(d => d._id.date === date && d._id.status === 'failed');
-    return item ? item.count : 0;
-});
+const startDate = new Date('{{{dateRange.startDate}}}');
+const endDate = new Date('{{{dateRange.endDate}}}');
+const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+let chartLabels = [];
+let chartRevenues = [];
+let chartOrderCounts = [];
+
+if (daysDiff <= 20) {
+    // Daily view
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const label = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+        const dayData = paymentTrendsData.find(item => item._id.date === dateStr && item._id.status === 'paid');
+        chartLabels.push(label);
+        chartRevenues.push(dayData ? dayData.amount : 0);
+        chartOrderCounts.push(dayData ? dayData.count : 0);
+    }
+} else {
+    // Weekly view
+    const weeklyData = {};
+    paymentTrendsData.forEach(item => {
+        if (item._id.status !== 'paid') return;
+        const date = new Date(item._id.date);
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - (date.getDay() === 0 ? 6 : date.getDay() - 1)); // Monday as start of week
+        const weekKey = weekStart.toISOString().split('T')[0];
+        if (!weeklyData[weekKey]) {
+            weeklyData[weekKey] = { revenue: 0, count: 0 };
+        }
+        weeklyData[weekKey].revenue += item.amount;
+        weeklyData[weekKey].count += item.count;
+    });
+    
+    Object.keys(weeklyData).sort().forEach(weekKey => {
+        const weekStart = new Date(weekKey);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        const label = `${weekStart.getDate().toString().padStart(2, '0')}/${(weekStart.getMonth() + 1).toString().padStart(2, '0')} - ${weekEnd.getDate().toString().padStart(2, '0')}/${(weekEnd.getMonth() + 1).toString().padStart(2, '0')}`;
+        chartLabels.push(label);
+        chartRevenues.push(weeklyData[weekKey].revenue);
+        chartOrderCounts.push(weeklyData[weekKey].count);
+    });
+}
 
 const trendsCtx = document.getElementById('paymentTrendsChart').getContext('2d');
 new Chart(trendsCtx, {
-    type: 'line',
+    type: 'bar',
     data: {
-        labels: trendLabels,
+        labels: chartLabels,
         datasets: [{
-            label: 'Doanh thu (VND)',
-            data: successData,
-            borderColor: 'rgb(75, 192, 192)',
-            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-            yAxisID: 'y'
-        }, {
-            label: 'Giao dịch thất bại',
-            data: failedData,
-            borderColor: 'rgb(255, 99, 132)',
-            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-            yAxisID: 'y1'
+            label: daysDiff <= 20 ? 'Doanh thu hàng ngày (VND)' : 'Doanh thu hàng tuần (VND)',
+            data: chartRevenues,
+            backgroundColor: 'rgba(75, 192, 192, 0.8)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1,
+            borderRadius: 4,
         }]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const revenue = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(context.parsed.y);
+                        const orders = chartOrderCounts[context.dataIndex];
+                        return [`Doanh thu: ${revenue}`, `Số giao dịch: ${orders}`];
+                    }
+                }
+            }
+        },
         scales: {
             y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                beginAtZero: true
-            },
-            y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
                 beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return new Intl.NumberFormat('vi-VN', { 
+                            style: 'currency', 
+                            currency: 'VND',
+                            notation: 'compact'
+                        }).format(value);
+                    }
+                },
                 grid: {
-                    drawOnChartArea: false,
+                    color: 'rgba(0, 0, 0, 0.1)'
+                }
+            },
+            x: {
+                grid: {
+                    display: false
                 }
             }
         }

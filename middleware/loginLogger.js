@@ -50,6 +50,28 @@ function getClientIP(req) {
 const logSuccessfulLogin = async (req, res, next) => {
     try {
         if (req.user) {
+            // Tự động đánh dấu các session cũ của user này là inactive
+            const oldSessions = await LoginLog.find({
+                user: req.user._id,
+                isActive: true,
+                logoutTime: { $exists: false }
+            });
+            
+            for (const session of oldSessions) {
+                const sessionDuration = Math.floor((Date.now() - session.loginTime.getTime()) / (1000 * 60));
+                await LoginLog.updateOne(
+                    { _id: session._id },
+                    {
+                        $set: {
+                            isActive: false,
+                            logoutTime: new Date(),
+                            sessionDuration: sessionDuration,
+                            notes: 'Auto-logged out due to new login'
+                        }
+                    }
+                );
+            }
+            
             const ipAddress = getClientIP(req);
             const uaHeader = req.get('User-Agent');
             const userAgent = (uaHeader && uaHeader.trim()) ? uaHeader : 'unknown';

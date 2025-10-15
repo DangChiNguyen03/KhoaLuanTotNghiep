@@ -1,0 +1,203 @@
+{{#section 'title'}}{{title}}{{/section}}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-ticket-alt me-2"></i>{{title}}</h2>
+    </div>
+
+    {{> messages}}
+
+    <div class="row">
+        <!-- Form thêm voucher -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Thêm mã giảm giá mới</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="/admin/vouchers">
+                        <div class="mb-3">
+                            <label class="form-label">Mã giảm giá</label>
+                            <input type="text" class="form-control" name="code" placeholder="Ví dụ: CAPHESANG" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mô tả</label>
+                            <input type="text" class="form-control" name="description" placeholder="Giảm 15% cho cà phê buổi sáng" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Loại giảm giá</label>
+                                <select class="form-select" name="discountType" id="discountTypeSelect">
+                                    <option value="percentage">Phần trăm (%)</option>
+                                    <option value="fixed_amount">Số tiền cố định</option>
+                                    <option value="special_day_fixed_price">Đồng giá ngày đặc biệt</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Giá trị</label>
+                                <input type="number" class="form-control" name="discountValue" value="15" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="applicableCategory" class="form-label">Danh mục áp dụng</label>
+                            <select class="form-select" id="applicableCategory" name="applicableCategory">
+                                <option value="">Tất cả</option>
+                                {{#each categories}}
+                                <option value="{{this}}">{{this}}</option>
+                                {{/each}}
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Giờ bắt đầu (Tùy chọn)</label>
+                                <input type="number" class="form-control" name="startTime" min="0" max="23" placeholder="Ví dụ: 6">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Giờ kết thúc (Tùy chọn)</label>
+                                <input type="number" class="form-control" name="endTime" min="0" max="23" placeholder="Ví dụ: 10">
+                            </div>
+                        </div>
+                        <!-- Special Day Fields (hidden by default) -->
+                        <div id="specialDayFields" style="display: none;">
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Ngày trong tuần</label>
+                                    <select class="form-select" name="specialDay">
+                                        <option value="1">Thứ Hai</option>
+                                        <option value="2">Thứ Ba</option>
+                                        <option value="3">Thứ Tư</option>
+                                        <option value="4">Thứ Năm</option>
+                                        <option value="5">Thứ Sáu</option>
+                                        <option value="6">Thứ Bảy</option>
+                                        <option value="0">Chủ Nhật</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Size áp dụng</label>
+                                    <input type="text" class="form-control" name="applicableSize" placeholder="Ví dụ: L">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Giá cố định (đồng giá)</label>
+                                <input type="number" class="form-control" name="fixedPrice" placeholder="Ví dụ: 30000">
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Thêm mã</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bảng danh sách voucher -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Danh sách mã giảm giá</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Mã</th>
+                                    <th>Mô tả</th>
+                                    <th>Giá trị</th>
+                                    <th>Điều kiện</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each vouchers}}
+                                <tr>
+                                    <td><span class="badge bg-primary">{{this.code}}</span></td>
+                                    <td>{{this.description}}</td>
+                                    <td>
+                                        {{#if (eq this.discountType 'percentage')}}
+                                            {{this.discountValue}}%
+                                        {{else if (eq this.discountType 'fixed_amount')}}
+                                            {{formatCurrency this.discountValue}}
+                                        {{else if (eq this.discountType 'special_day_fixed_price')}}
+                                            <span class="text-success">Đồng giá {{formatCurrency this.fixedPrice}}</span>
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        {{#if (eq this.discountType 'special_day_fixed_price')}}
+                                            <small><strong>Ngày đặc biệt:</strong> 
+                                                {{#if (eq this.specialDay 1)}}Thứ 2{{/if}}
+                                                {{#if (eq this.specialDay 2)}}Thứ 3{{/if}}
+                                                {{#if (eq this.specialDay 3)}}Thứ 4{{/if}}
+                                                {{#if (eq this.specialDay 4)}}Thứ 5{{/if}}
+                                                {{#if (eq this.specialDay 5)}}Thứ 6{{/if}}
+                                                {{#if (eq this.specialDay 6)}}Thứ 7{{/if}}
+                                                {{#if (eq this.specialDay 0)}}CN{{/if}}
+                                            </small><br>
+                                            <small><strong>Size:</strong> {{this.applicableSize}}</small><br>
+                                            <small><strong>Danh mục:</strong> {{this.applicableCategory}}</small>
+                                        {{else}}
+                                            {{#if this.applicableCategory}}
+                                                <small>Danh mục: {{this.applicableCategory}}</small><br>
+                                            {{/if}}
+                                            {{#if this.startTime}}
+                                                <small>Giờ: {{this.startTime}}h - {{this.endTime}}h</small>
+                                            {{/if}}
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        {{#if this.isActive}}
+                                            <span class="badge bg-success">Hoạt động</span>
+                                        {{else}}
+                                            <span class="badge bg-secondary">Không hoạt động</span>
+                                        {{/if}}
+                                    </td>
+                                    <td>
+                                        <form method="POST" action="/admin/vouchers/delete/{{this._id}}" onsubmit="return confirm('Bạn có chắc muốn xóa mã này?');">
+                                            <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {{else}}
+                                <tr>
+                                    <td colspan="6" class="text-center">Chưa có mã giảm giá nào.</td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const discountTypeSelect = document.getElementById('discountTypeSelect');
+    const specialDayFields = document.getElementById('specialDayFields');
+    const discountValueInput = document.querySelector('input[name="discountValue"]');
+    const fixedPriceInput = document.querySelector('input[name="fixedPrice"]');
+    const applicableSizeInput = document.querySelector('input[name="applicableSize"]');
+
+    function toggleFields() {
+        if (discountTypeSelect.value === 'special_day_fixed_price') {
+            specialDayFields.style.display = 'block';
+            discountValueInput.closest('.col-6.mb-3').style.display = 'none';
+            discountValueInput.required = false;
+            fixedPriceInput.required = true;
+            applicableSizeInput.required = true;
+        } else {
+            specialDayFields.style.display = 'none';
+            discountValueInput.closest('.col-6.mb-3').style.display = 'block';
+            discountValueInput.required = true;
+            fixedPriceInput.required = false;
+            applicableSizeInput.required = false;
+        }
+    }
+
+    discountTypeSelect.addEventListener('change', toggleFields);
+    toggleFields(); // Initial check on page load
+});
+</script>

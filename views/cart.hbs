@@ -37,7 +37,7 @@
                                 <li class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <span class="fw-medium">{{this.name}}</span>
-                                        <span class="text-muted"> - {{formatCurrency this.price}}</span>
+                                        <span class="text-muted"> - {{formatCurrency (getPrice this)}}</span>
                                     </div>
                                     <button class="btn btn-link text-danger p-0 ms-1 remove-topping" data-topping-id="{{this._id}}" style="font-size: 0.8em;">
                                         <i class="fas fa-times"></i>
@@ -83,7 +83,7 @@
                                 {{#each product.sizes}}
                                     {{#if (eq this.size ../size)}}
                                         {{#if ../toppingDetails}}
-                                            {{formatPrice (multiply (add this.price (sum ../toppingDetails "price")) ../quantity)}}
+                                            {{formatPrice (multiply (add this.price (sumToppingPrices ../toppingDetails)) ../quantity)}}
                                         {{else}}
                                             {{formatPrice (multiply this.price ../quantity)}}
                                         {{/if}}
@@ -91,14 +91,14 @@
                                 {{/each}}
                             {{else}}
                                 {{#if toppingDetails}}
-                                    {{formatPrice (multiply (add product.price (sum toppingDetails "price")) quantity)}}
+                                    {{formatPrice (multiply (add product.price (sumToppingPrices toppingDetails)) quantity)}}
                                 {{else}}
                                     {{formatPrice (multiply product.price quantity)}}
                                 {{/if}}
                             {{/if}}
                         {{else}}
                             {{#if toppingDetails}}
-                                {{formatPrice (multiply (add product.price (sum toppingDetails "price")) quantity)}}
+                                {{formatPrice (multiply (add product.price (sumToppingPrices toppingDetails)) quantity)}}
                             {{else}}
                                 {{formatPrice (multiply product.price quantity)}}
                             {{/if}}
@@ -122,13 +122,43 @@
         </table>
     </div>
 
-    <div class="d-flex justify-content-between">
-        <a href="/products" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Tiếp tục mua sắm
-        </a>
-        <a href="/cart/checkout" class="btn btn-primary">
-            Thanh toán<i class="fas fa-arrow-right ms-2"></i>
-        </a>
+    <div class="row">
+        <div class="col-md-6">
+            <a href="/products" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Tiếp tục mua sắm
+            </a>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Tổng kết đơn hàng</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Tạm tính</span>
+                            <strong id="original-total">{{formatPrice totalPrice}}</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between" id="discount-row" style="display: none;">
+                            <span>Giảm giá</span>
+                            <strong id="discount-amount" class="text-success">-0đ</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Tổng cộng</strong>
+                            <strong id="final-total">{{formatPrice totalPrice}}</strong>
+                        </li>
+                    </ul>
+                    <hr>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Mã giảm giá:</strong> Chọn voucher ở bước thanh toán tiếp theo
+                    </div>
+                    <div class="d-grid">
+                         <a href="/cart/checkout" class="btn btn-primary">
+                            Thanh toán<i class="fas fa-arrow-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     {{else}}
     <div class="text-center">
@@ -248,5 +278,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
 });
 </script>

@@ -20,20 +20,14 @@ function ensureAdmin(req, res, next) {
     res.status(403).send('Bạn không có quyền truy cập!');
 }
 
-// GET /orders - Danh sách đơn hàng của user hoặc admin
+// GET /orders - Danh sách đơn hàng của user hiện tại
 router.get('/', ensureAuthenticated, async (req, res) => {
     try {
-        let orders;
-        if (req.user.role === 'admin') {
-            orders = await Order.find({})
-                .populate('user', 'name email')
-                .populate('items.product', 'name')
-                .sort({ createdAt: -1 });
-        } else {
-            orders = await Order.find({ user: req.user._id })
-                .populate('items.product', 'name')
-                .sort({ createdAt: -1 });
-        }
+        // Chỉ hiển thị đơn hàng của user hiện tại (bao gồm cả admin)
+        const orders = await Order.find({ user: req.user._id })
+            .populate('items.product', 'name')
+            .sort({ createdAt: -1 });
+            
         res.render('orders/index', { orders, user: req.user });
     } catch (err) {
         res.status(500).send('Lỗi lấy danh sách đơn hàng!');

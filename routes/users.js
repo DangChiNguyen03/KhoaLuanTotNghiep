@@ -114,7 +114,7 @@ router.get("/register", forwardAuthenticated, (req, res) => {
 
 // Register Handle
 router.post("/register", async (req, res) => {
-  const { name, email, password, password2, birthday } = req.body;
+  const { name, email, password, password2, birthday, phone, address } = req.body;
   let errors = [];
 
   // Check required fields
@@ -140,6 +140,9 @@ router.post("/register", async (req, res) => {
       email,
       password,
       password2,
+      phone,
+      address,
+      birthday,
     });
   } else {
     try {
@@ -153,6 +156,9 @@ router.post("/register", async (req, res) => {
           email,
           password,
           password2,
+          phone,
+          address,
+          birthday,
         });
       } else {
         const newUser = new User({
@@ -160,6 +166,8 @@ router.post("/register", async (req, res) => {
           email,
           password,
           birthday: birthday || null,
+          phone: phone || '',
+          address: address || '',
         });
 
         // Hash Password

@@ -3,7 +3,6 @@
     <thead class="table-light">
         <tr>
             <th>Mã đơn</th>
-            {{#if (eq user.role 'admin')}}<th>Khách hàng</th>{{/if}}
             <th>Ngày đặt</th>
             <th>Tổng tiền</th>
             <th>Trạng thái</th>
@@ -14,7 +13,6 @@
         {{#each orders}}
         <tr>
             <td>{{this._id}}</td>
-            {{#if (eq ../user.role 'admin')}}<td>{{this.user.name}}<br>{{this.user.email}}</td>{{/if}}
             <td>{{formatDate this.createdAt}}</td>
             <td>{{this.totalPrice}} VND</td>
             <td>

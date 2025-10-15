@@ -166,6 +166,12 @@
                                             {{#if this.phone}}
                                                 <br><small><i class="fas fa-phone me-1"></i>{{this.phone}}</small>
                                             {{/if}}
+                                            {{#if this.address}}
+                                                <br><small><i class="fas fa-map-marker-alt me-1"></i>{{this.address}}</small>
+                                            {{/if}}
+                                            {{#if this.birthday}}
+                                                <br><small><i class="fas fa-birthday-cake me-1"></i>{{formatDate this.birthday}}</small>
+                                            {{/if}}
                                         </div>
                                     </td>
                                     <td>
@@ -285,6 +291,24 @@
                             <div class="mb-3">
                                 <label class="form-label">Mã nhân viên <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="employeeId" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Số điện thoại</label>
+                                <input type="tel" class="form-control" name="phone" placeholder="0123456789">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Địa chỉ</label>
+                                <input type="text" class="form-control" name="address" placeholder="Địa chỉ nhà">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Ngày sinh</label>
+                                <input type="date" class="form-control" name="birthday">
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -423,6 +447,24 @@ async function editUser(userId) {
                         <div class="mb-3">
                             <label class="form-label">Mã nhân viên</label>
                             <input type="text" class="form-control" name="employeeId" value="${user.employeeId}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Số điện thoại</label>
+                            <input type="tel" class="form-control" name="phone" value="${user.phone || ''}" placeholder="0123456789">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Địa chỉ</label>
+                            <input type="text" class="form-control" name="address" value="${user.address || ''}" placeholder="Địa chỉ nhà">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Ngày sinh</label>
+                            <input type="date" class="form-control" name="birthday" value="${user.birthday ? user.birthday.split('T')[0] : ''}">
                         </div>
                     </div>
                     <div class="col-md-6">

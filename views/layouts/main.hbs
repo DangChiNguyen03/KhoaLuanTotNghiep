@@ -4,15 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YOLOBrew</title>
+    <!-- Preload Font Awesome for better performance -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
     <!-- Bootstrap 5.3 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+    <!-- Fallback Font Awesome CDN -->
+    <link href="https://use.fontawesome.com/releases/v6.4.0/css/all.css" rel="stylesheet" crossorigin="anonymous"/>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <style>
     body{
         background: linear-gradient(to bottom, #fff1eb , #ace0f9);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    /* Font Awesome fallback */
+    .fas, .far, .fab, .fal, .fad, .fass, .fasr, .fasl {
+        font-family: "Font Awesome 6 Free", "Font Awesome 6 Pro", "Font Awesome 5 Free", "Font Awesome 5 Pro", "FontAwesome" !important;
+        font-weight: 900;
+        font-style: normal;
+        font-variant: normal;
+        text-rendering: auto;
+        line-height: 1;
+    }
+    
+    /* Ensure icons display even if font fails to load */
+    .fas::before, .far::before, .fab::before {
+        display: inline-block;
+        font-style: normal;
+        font-variant: normal;
+        text-rendering: auto;
+        -webkit-font-smoothing: antialiased;
     }
 </style>
 <body>
@@ -62,6 +86,9 @@
                                     <li><a class="dropdown-item" href="/admin/customers" onclick="event.stopPropagation();">
                                         <i class="fas fa-users"></i> Khách hàng
                                     </a></li>
+                                    <li><a class="dropdown-item" href="/admin/vouchers" onclick="event.stopPropagation();">
+                                        <i class="fas fa-ticket-alt"></i> Quản lý Voucher
+                                    </a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="/admin/payments" onclick="event.stopPropagation();">
                                         <i class="fas fa-credit-card me-2"></i>Quản lý Thanh toán
@@ -91,9 +118,6 @@
                                     </a></li>
                                     <li><a class="dropdown-item" href="/admin/reports/sales" onclick="event.stopPropagation();">
                                         <i class="fas fa-chart-line me-2"></i>Báo cáo Doanh số
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="/admin/reports/system-users" onclick="event.stopPropagation();">
-                                        <i class="fas fa-users-cog me-2"></i>Báo cáo Người dùng HT
                                     </a></li>
                                 </ul>
                             </li>
@@ -129,55 +153,405 @@
     {{> footer}}
 
     <!-- Bootstrap JS -->
-    <!-- Chatbot Widget -->
+    <!-- Chatbot Widget - Enhanced UI -->
     <div id="chatbot-widget" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
-        <div id="chatbot-box" style="width: 350px; background: #fff; border-radius: 10px; box-shadow: 0 2px 16px rgba(0,0,0,0.18); display: none; flex-direction: column;">
-            <div style="background: #007bff; color: #fff; padding: 10px 16px; border-radius: 10px 10px 0 0; font-weight: bold;">Tư vấn AI</div>
-            <div id="chatbot-messages" style="padding: 12px; height: 220px; overflow-y: auto; font-size: 15px;"></div>
-            <form id="chatbot-form" style="display: flex; border-top: 1px solid #eee;">
-                <textarea id="chatbot-input" placeholder="Nhập câu hỏi..." autocomplete="off" style="flex: 1; border: none; padding: 10px; outline: none; font-size: 15px; resize: none; min-height: 38px; max-height: 100px; overflow-y: auto;"></textarea>
-                <button type="submit" style="background: #007bff; color: #fff; border: none; padding: 0 16px; cursor: pointer;">Gửi</button>
+        <div id="chatbot-box" style="width: 380px; background: #fff; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: none; flex-direction: column; border: 1px solid #e0e0e0;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 16px 20px; border-radius: 15px 15px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center;">
+                    <div style="width: 10px; height: 10px; background: #4ade80; border-radius: 50%; margin-right: 8px; animation: pulse 2s infinite;"></div>
+                    <span style="font-weight: 600; font-size: 16px;">🤖 YOLOBrew AI Assistant</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="chatbot-clear" style="background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; opacity: 0.8; padding: 4px 6px; border-radius: 4px; transition: all 0.2s;" title="Xóa lịch sử">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button id="chatbot-minimize" style="background: none; border: none; color: #fff; font-size: 16px; cursor: pointer; opacity: 0.8; padding: 4px 6px; border-radius: 4px; transition: all 0.2s;" title="Thu nhỏ">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <button id="chatbot-close" style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; opacity: 0.8; padding: 0;" title="Đóng">×</button>
+                </div>
+            </div>
+            
+            <!-- Messages Area -->
+            <div id="chatbot-messages" style="padding: 16px; height: 300px; overflow-y: auto; font-size: 14px; line-height: 1.5; background: #fafafa;">
+                <!-- Messages will be loaded here -->
+            </div>
+            
+            <!-- Input Area -->
+            <form id="chatbot-form" style="display: flex; border-top: 1px solid #e0e0e0; background: #fff; border-radius: 0 0 15px 15px;">
+                <textarea id="chatbot-input" placeholder="Hỏi về menu, giá cả, khuyến mãi..." autocomplete="off" style="flex: 1; border: none; padding: 14px 16px; outline: none; font-size: 14px; resize: none; min-height: 20px; max-height: 80px; overflow-y: auto; background: transparent; font-family: inherit;"></textarea>
+                <button type="submit" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; padding: 0 20px; cursor: pointer; border-radius: 0 0 15px 0; transition: all 0.2s;">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
             </form>
         </div>
-        <button id="chatbot-toggle" style="background: #007bff; color: #fff; border: none; border-radius: 50%; width: 52px; height: 52px; font-size: 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer;">
+        
+        <!-- Minimized State -->
+        <div id="chatbot-minimized" style="width: 300px; background: #fff; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: none; border: 1px solid #e0e0e0;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 12px 16px; border-radius: 15px; display: flex; align-items: center; justify-content: space-between; cursor: pointer;" id="chatbot-minimized-header">
+                <div style="display: flex; align-items: center;">
+                    <div style="width: 8px; height: 8px; background: #4ade80; border-radius: 50%; margin-right: 8px; animation: pulse 2s infinite;"></div>
+                    <span style="font-weight: 600; font-size: 14px;">🤖 YOLOBrew AI</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="chatbot-maximize" style="background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; opacity: 0.8; padding: 2px 4px;" title="Mở rộng">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button id="chatbot-close-min" style="background: none; border: none; color: #fff; font-size: 16px; cursor: pointer; opacity: 0.8; padding: 0;" title="Đóng">×</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Toggle Button -->
+        <button id="chatbot-toggle" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 50%; width: 60px; height: 60px; font-size: 24px; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4); cursor: pointer; transition: all 0.3s ease; position: relative;">
             <i class="fas fa-comments"></i>
+            <div style="position: absolute; top: -8px; right: -8px; background: #ff4757; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold;">AI</div>
         </button>
     </div>
+    
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        #chatbot-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        }
+        
+        #chatbot-messages::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        #chatbot-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+        
+        #chatbot-messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+        
+        #chatbot-messages::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        #chatbot-minimize:hover, #chatbot-maximize:hover, #chatbot-close-min:hover, #chatbot-clear:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        #chatbot-minimized-header:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+    </style>
     <script>
         const chatbotToggle = document.getElementById('chatbot-toggle');
         const chatbotBox = document.getElementById('chatbot-box');
+        const chatbotMinimized = document.getElementById('chatbot-minimized');
+        const chatbotClose = document.getElementById('chatbot-close');
+        const chatbotCloseMin = document.getElementById('chatbot-close-min');
+        const chatbotMinimize = document.getElementById('chatbot-minimize');
+        const chatbotMaximize = document.getElementById('chatbot-maximize');
+        const chatbotClear = document.getElementById('chatbot-clear');
+        const chatbotMinimizedHeader = document.getElementById('chatbot-minimized-header');
         const chatbotForm = document.getElementById('chatbot-form');
         const chatbotInput = document.getElementById('chatbot-input');
         const chatbotMessages = document.getElementById('chatbot-messages');
 
-        chatbotToggle.onclick = () => {
-            chatbotBox.style.display = chatbotBox.style.display === 'flex' ? 'none' : 'flex';
-        };
+        // Chat history management - Session only (không lưu khi đóng tab)
+        const CHAT_STORAGE_KEY = 'yolobrew_chat_history';
+        const CHAT_STATE_KEY = 'yolobrew_chat_state';
 
+        // Load chat history from sessionStorage (chỉ trong phiên)
+        function loadChatHistory() {
+            try {
+                const history = sessionStorage.getItem(CHAT_STORAGE_KEY);
+                if (history) {
+                    const messages = JSON.parse(history);
+                    // Clear welcome message first
+                    chatbotMessages.innerHTML = '';
+                    messages.forEach(msg => {
+                        addMessage(msg.content, msg.isUser, false); // false = don't save to storage
+                    });
+                } else {
+                    // Show welcome message if no history
+                    showWelcomeMessage();
+                }
+            } catch (error) {
+                console.log('Error loading chat history:', error);
+                showWelcomeMessage();
+            }
+        }
+
+        // Show welcome message
+        function showWelcomeMessage() {
+            chatbotMessages.innerHTML = `
+                <div style="text-align: center; color: #666; margin-bottom: 16px; font-size: 13px;">
+                    <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+                        <i class="fas fa-robot" style="color: #1976d2; margin-right: 6px;"></i>
+                        <strong>Xin chào! Tôi là trợ lý AI của YOLOBrew</strong>
+                    </div>
+                    <div style="color: #888; font-size: 12px;">
+                        Tôi có thể giúp bạn về menu, giá cả, khuyến mãi và đặt hàng 🍹
+                    </div>
+                </div>
+            `;
+        }
+
+        // Save chat history to sessionStorage (chỉ trong phiên)
+        function saveChatHistory() {
+            try {
+                const messages = Array.from(chatbotMessages.children)
+                    .filter(el => !el.id || el.id !== 'typing-indicator')
+                    .map(el => {
+                        const isUser = el.classList.contains('user-message');
+                        // Get clean content without the header
+                        const contentDiv = el.querySelector('.message-content') || el;
+                        return {
+                            content: contentDiv.innerHTML,
+                            isUser: isUser
+                        };
+                    });
+                sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+            } catch (error) {
+                console.log('Error saving chat history:', error);
+            }
+        }
+
+        // Load and save chat state (open/minimized/closed) - Session only
+        function loadChatState() {
+            try {
+                const state = sessionStorage.getItem(CHAT_STATE_KEY);
+                if (state) {
+                    const chatState = JSON.parse(state);
+                    if (chatState.isOpen) {
+                        if (chatState.isMinimized) {
+                            showMinimized();
+                        } else {
+                            showFullChat();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('Error loading chat state:', error);
+            }
+        }
+
+        function saveChatState(isOpen, isMinimized = false) {
+            try {
+                sessionStorage.setItem(CHAT_STATE_KEY, JSON.stringify({
+                    isOpen: isOpen,
+                    isMinimized: isMinimized
+                }));
+            } catch (error) {
+                console.log('Error saving chat state:', error);
+            }
+        }
+
+        // Show/hide functions
+        function showFullChat() {
+            chatbotBox.style.display = 'flex';
+            chatbotMinimized.style.display = 'none';
+            chatbotToggle.style.display = 'none';
+            chatbotInput.focus();
+            saveChatState(true, false);
+        }
+
+        function showMinimized() {
+            chatbotBox.style.display = 'none';
+            chatbotMinimized.style.display = 'block';
+            chatbotToggle.style.display = 'none';
+            saveChatState(true, true);
+        }
+
+        function hideChat() {
+            chatbotBox.style.display = 'none';
+            chatbotMinimized.style.display = 'none';
+            chatbotToggle.style.display = 'block';
+            saveChatState(false, false);
+        }
+
+        // Clear chat history
+        function clearChatHistory() {
+            if (confirm('Bạn có chắc muốn xóa toàn bộ lịch sử chat?')) {
+                sessionStorage.removeItem(CHAT_STORAGE_KEY);
+                showWelcomeMessage();
+            }
+        }
+
+        // Event handlers
+        chatbotToggle.onclick = showFullChat;
+        chatbotClose.onclick = hideChat;
+        chatbotCloseMin.onclick = hideChat;
+        chatbotMinimize.onclick = showMinimized;
+        chatbotMaximize.onclick = showFullChat;
+        chatbotClear.onclick = clearChatHistory;
+        chatbotMinimizedHeader.onclick = showFullChat;
+
+        // Add message to chat
+        function addMessage(content, isUser = false, saveToStorage = true) {
+            const messageDiv = document.createElement('div');
+            
+            // Add class for identification
+            if (isUser) {
+                messageDiv.classList.add('user-message');
+            } else {
+                messageDiv.classList.add('ai-message');
+            }
+            
+            messageDiv.style.cssText = `
+                margin-bottom: 12px;
+                padding: 10px 12px;
+                border-radius: 12px;
+                max-width: 85%;
+                word-wrap: break-word;
+                line-height: 1.4;
+                display: flex;
+                flex-direction: column;
+                ${isUser ? 
+                    'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-left: auto; align-items: flex-end;' : 
+                    'background: white; color: #333; border: 1px solid #e0e0e0; margin-right: auto; align-items: flex-start;'
+                }
+            `;
+            
+            // Create header
+            const headerDiv = document.createElement('div');
+            headerDiv.style.cssText = `
+                font-size: 12px;
+                margin-bottom: 4px;
+                ${isUser ? 'opacity: 0.8;' : 'color: #666; display: flex; align-items: center;'}
+            `;
+            
+            if (isUser) {
+                headerDiv.textContent = 'Bạn';
+            } else {
+                headerDiv.innerHTML = '<i class="fas fa-robot" style="margin-right: 4px; color: #667eea;"></i>YOLOBrew AI';
+            }
+            
+            // Create content
+            const contentDiv = document.createElement('div');
+            contentDiv.classList.add('message-content');
+            contentDiv.innerHTML = content;
+            contentDiv.style.cssText = 'width: 100%;';
+            
+            messageDiv.appendChild(headerDiv);
+            messageDiv.appendChild(contentDiv);
+            
+            chatbotMessages.appendChild(messageDiv);
+            chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+            
+            // Save to localStorage if requested
+            if (saveToStorage) {
+                saveChatHistory();
+            }
+        }
+
+        // Show typing indicator
+        function showTyping() {
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.style.cssText = `
+                margin-bottom: 12px;
+                padding: 10px 12px;
+                border-radius: 12px;
+                background: white;
+                border: 1px solid #e0e0e0;
+                max-width: 85%;
+                margin-right: auto;
+            `;
+            typingDiv.innerHTML = `
+                <div style="font-size: 12px; color: #666; margin-bottom: 4px; display: flex; align-items: center;">
+                    <i class="fas fa-robot" style="margin-right: 4px; color: #667eea;"></i>YOLOBrew AI
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <div style="display: flex; gap: 3px;">
+                        <div style="width: 6px; height: 6px; background: #667eea; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out;"></div>
+                        <div style="width: 6px; height: 6px; background: #667eea; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; animation-delay: 0.2s;"></div>
+                        <div style="width: 6px; height: 6px; background: #667eea; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; animation-delay: 0.4s;"></div>
+                    </div>
+                    <span style="margin-left: 8px; color: #888; font-size: 12px;">Đang trả lời...</span>
+                </div>
+            `;
+            chatbotMessages.appendChild(typingDiv);
+            chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+        }
+
+        function hideTyping() {
+            const typingDiv = document.getElementById('typing-indicator');
+            if (typingDiv) {
+                typingDiv.remove();
+            }
+        }
+
+        // Handle form submission
         chatbotForm.onsubmit = async (e) => {
             e.preventDefault();
             const msg = chatbotInput.value.trim();
             if (!msg) return;
-            chatbotMessages.innerHTML += `<div style='margin-bottom:6px;'><b>Bạn:</b> ${msg}</div>`;
+
+            // Add user message
+            addMessage(msg, true);
             chatbotInput.value = '';
-            chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+            
+            // Show typing indicator
+            showTyping();
+
             try {
                 const res = await fetch('/api/chatbot', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: msg })
                 });
+                
+                hideTyping();
+                
                 const data = await res.json();
                 if (data.reply) {
-                    chatbotMessages.innerHTML += `<div style='margin-bottom:6px; color: #007bff;'><b>AI:</b> ${data.reply}</div>`;
+                    // Format reply with line breaks and emojis
+                    const formattedReply = data.reply.replace(/\\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    addMessage(formattedReply, false);
                 } else {
-                    chatbotMessages.innerHTML += `<div style='color:red;'>AI không trả lời được. Vui lòng thử lại!</div>`;
+                    addMessage('<span style="color: #ff4757;">❌ AI không trả lời được. Vui lòng thử lại!</span>', false);
                 }
-            } catch {
-                chatbotMessages.innerHTML += `<div style='color:red;'>Lỗi kết nối AI. Vui lòng thử lại!</div>`;
+            } catch (error) {
+                hideTyping();
+                addMessage('<span style="color: #ff4757;">❌ Lỗi kết nối AI. Vui lòng thử lại sau!</span>', false);
             }
-            chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
         };
+
+        // Auto-resize textarea
+        chatbotInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+        });
+
+        // Enter to send, Shift+Enter for new line
+        chatbotInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatbotForm.dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Initialize chat on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Xóa lịch sử cũ từ localStorage (migration)
+            localStorage.removeItem(CHAT_STORAGE_KEY);
+            localStorage.removeItem(CHAT_STATE_KEY);
+            
+            loadChatHistory();
+            loadChatState();
+        });
     </script>
+    
+    <style>
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+    </style>
 </body>
 </html>

@@ -15,6 +15,12 @@ const ProductSchema = new mongoose.Schema({
             ];
         }
     },
+    price: {
+        type: Number,
+        required: function() {
+            return this.category === 'Topping';
+        }
+    },
     name: {
         type: String,
         required: true
@@ -31,7 +37,8 @@ const ProductSchema = new mongoose.Schema({
     category: {
         type: String,
         required: true,
-        enum: ['Trà sữa', 'Trà trái cây', 'Đá xay', 'Topping', 'Cà phê', 'Nước ép']    },
+        enum: ['Trà sữa', 'Trà trái cây', 'Đá xay', 'Topping', 'Cà phê', 'Nước ép']
+    },
     toppings: [{
         type: String
     }],

@@ -121,6 +121,7 @@
                     <div class="card">
                         <div class="card-header">
                             <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Xu hướng đăng ký</h5>
+                            <small class="text-muted">{{formatDate dateRange.startDate}} - {{formatDate dateRange.endDate}}</small>
                         </div>
                         <div class="card-body">
                             <div class="chart-container">
@@ -263,50 +264,105 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-// Registration Trend Chart
+// Smart Registration Trend Chart
 const registrationData = {{{json registrationTrend}}};
-const registrationLabels = registrationData.map(item => item._id);
-const registrationValues = registrationData.map(item => item.count);
+const startDate = new Date('{{{dateRange.startDate}}}');
+const endDate = new Date('{{{dateRange.endDate}}}');
+const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+let chartLabels = [];
+let chartValues = [];
+let groupingUnit = 'ngày';
+
+if (daysDiff <= 30) {
+    // Daily view
+    groupingUnit = 'ngày';
+    registrationData.forEach(item => {
+        const date = new Date(item._id);
+        chartLabels.push(`${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`);
+        chartValues.push(item.count);
+    });
+} else if (daysDiff <= 90) {
+    // Weekly view
+    groupingUnit = 'tuần';
+    const weeklyData = {};
+    registrationData.forEach(item => {
+        const date = new Date(item._id);
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - (date.getDay() === 0 ? 6 : date.getDay() - 1));
+        const weekKey = weekStart.toISOString().split('T')[0];
+        if (!weeklyData[weekKey]) weeklyData[weekKey] = 0;
+        weeklyData[weekKey] += item.count;
+    });
+    Object.keys(weeklyData).sort().forEach(weekKey => {
+        const weekStart = new Date(weekKey);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        chartLabels.push(`${weekStart.getDate().toString().padStart(2, '0')}/${(weekStart.getMonth() + 1).toString().padStart(2, '0')}`);
+        chartValues.push(weeklyData[weekKey]);
+    });
+} else {
+    // Monthly view
+    groupingUnit = 'tháng';
+    const monthlyData = {};
+    registrationData.forEach(item => {
+        const date = new Date(item._id);
+        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        if (!monthlyData[monthKey]) monthlyData[monthKey] = 0;
+        monthlyData[monthKey] += item.count;
+    });
+    Object.keys(monthlyData).sort().forEach(monthKey => {
+        const [year, month] = monthKey.split('-');
+        chartLabels.push(`Thg ${month}/${year.slice(2)}`);
+        chartValues.push(monthlyData[monthKey]);
+    });
+}
 
 const registrationCanvas = document.getElementById('registrationChart');
-registrationCanvas.height = 280;
-registrationCanvas.width = registrationCanvas.parentElement.clientWidth;
 const registrationCtx = registrationCanvas.getContext('2d');
 new Chart(registrationCtx, {
-    type: 'line',
+    type: 'bar',
     data: {
-        labels: registrationLabels,
+        labels: chartLabels,
         datasets: [{
-            label: 'Số khách hàng đăng ký',
-            data: registrationValues,
-            borderColor: 'rgb(75, 192, 192)',
-            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-            tension: 0.1
+            label: `Số khách hàng đăng ký theo ${groupingUnit}`,
+            data: chartValues,
+            backgroundColor: 'rgba(75, 192, 192, 0.8)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1,
+            borderRadius: 4,
         }]
     },
     options: {
-        responsive: false,
+        responsive: true,
         maintainAspectRatio: false,
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return `Số đăng ký: ${context.parsed.y}`;
+                    }
+                }
+            }
+        },
         scales: {
             y: {
                 beginAtZero: true,
-                ticks: {
-                    stepSize: 1
-                }
+                ticks: { stepSize: 1 }
+            },
+            x: {
+                grid: { display: false }
             }
         }
     }
 });
 
-// Nếu toàn bộ giá trị = 0, hiển thị chú thích "Không có đăng ký mới"
-try {
-    if (registrationValues.length > 0 && registrationValues.every(v => v === 0)) {
-        const note = document.createElement('div');
-        note.className = 'text-center text-muted mt-2';
-        note.innerText = 'Không có đăng ký mới trong khoảng thời gian này';
-        registrationCtx.canvas.parentElement.appendChild(note);
-    }
-} catch (_) {}
+if (chartValues.every(v => v === 0)) {
+    const note = document.createElement('div');
+    note.className = 'text-center text-muted mt-2';
+    note.innerText = 'Không có đăng ký mới trong khoảng thời gian này';
+    registrationCanvas.parentElement.appendChild(note);
+}
 
 // Demographics Chart
 const demographicsData = {{{json demographics}}};

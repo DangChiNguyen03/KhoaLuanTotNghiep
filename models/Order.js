@@ -14,8 +14,11 @@ const orderSchema = new mongoose.Schema({
         },
         quantity: {
             type: Number,
-            required: true,
-            min: 1
+            required: true
+        },
+        price: { // Giá của 1 sản phẩm tại thời điểm mua hàng (đã bao gồm topping)
+            type: Number,
+            required: true
         },
         toppings: [{
             type: mongoose.Schema.Types.ObjectId,
@@ -31,6 +34,13 @@ const orderSchema = new mongoose.Schema({
     totalPrice: {
         type: Number,
         required: true
+    },
+    originalPrice: { // Giá gốc trước khi giảm
+        type: Number
+    },
+    voucher: {
+        code: String,
+        discountAmount: Number
     },
     paymentMethod: {
         type: String,

@@ -63,15 +63,6 @@
                                 <div>
                                     <h4>{{overview.totalOrders}}</h4>
                                     <p class="mb-0">Tổng đơn hàng</p>
-                                    <small>
-                                        {{#if (gt orderGrowth 0)}}
-                                            <i class="fas fa-arrow-up"></i> +{{orderGrowth}}%
-                                        {{else if (lt orderGrowth 0)}}
-                                            <i class="fas fa-arrow-down"></i> {{orderGrowth}}%
-                                        {{else}}
-                                            <i class="fas fa-minus"></i> 0%
-                                        {{/if}}
-                                    </small>
                                 </div>
                                 <div class="align-self-center">
                                     <i class="fas fa-shopping-cart fa-2x"></i>
@@ -87,15 +78,6 @@
                                 <div>
                                     <h4>{{formatCurrency overview.totalRevenue}}</h4>
                                     <p class="mb-0">Tổng doanh thu</p>
-                                    <small>
-                                        {{#if (gt revenueGrowth 0)}}
-                                            <i class="fas fa-arrow-up"></i> +{{revenueGrowth}}%
-                                        {{else if (lt revenueGrowth 0)}}
-                                            <i class="fas fa-arrow-down"></i> {{revenueGrowth}}%
-                                        {{else}}
-                                            <i class="fas fa-minus"></i> 0%
-                                        {{/if}}
-                                    </small>
                                 </div>
                                 <div class="align-self-center">
                                     <i class="fas fa-dollar-sign fa-2x"></i>
@@ -172,6 +154,7 @@
                     <div class="card">
                         <div class="card-header">
                             <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Mẫu bán hàng theo giờ</h5>
+                            <small class="text-muted">Hôm nay ({{formatDate today}})</small>
                         </div>
                         <div class="card-body">
                             <canvas id="hourlySalesChart" height="150"></canvas>
@@ -184,6 +167,7 @@
                     <div class="card">
                         <div class="card-header">
                             <h5 class="mb-0"><i class="fas fa-calendar-week me-2"></i>Mẫu bán hàng theo thứ</h5>
+                            <small class="text-muted">Tuần này</small>
                         </div>
                         <div class="card-body">
                             <canvas id="weeklySalesChart" height="150"></canvas>
@@ -207,7 +191,6 @@
                                     <th>Số đơn hàng</th>
                                     <th>Doanh thu</th>
                                     <th>Giá trị đơn TB</th>
-                                    <th>Hiệu suất</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -221,20 +204,13 @@
                                         {{/if}}
                                     </td>
                                     <td>
-                                        <span class="badge bg-primary">{{this.orderCount}} đơn</span>
+                                        <span class="badge bg-primary">{{this.orders}} đơn</span>
                                     </td>
                                     <td>
                                         <strong class="text-success">{{formatCurrency this.revenue}}</strong>
                                     </td>
                                     <td>
-                                        <span class="text-info">{{formatCurrency (divide this.revenue this.orderCount)}}</span>
-                                    </td>
-                                    <td>
-                                        <div class="progress" style="width: 100px;">
-                                            <div class="progress-bar bg-success" role="progressbar" 
-                                                 style="width: {{multiply (divide this.revenue ../topDays.0.revenue) 100}}%">
-                                            </div>
-                                        </div>
+                                        <span class="text-info">{{formatCurrency (divide this.revenue this.orders)}}</span>
                                     </td>
                                 </tr>
                                 {{/each}}
@@ -294,11 +270,11 @@
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <div>
                                     <strong>{{this._id}}</strong>
-                                    <br><small class="text-muted">{{this.orderCount}} đơn hàng</small>
+                                    <br><small class="text-muted">{{this.orders}} đơn hàng</small>
                                 </div>
                                 <div class="text-end">
-                                    <strong class="text-success">{{formatCurrency this.totalAmount}}</strong>
-                                    <br><small class="text-muted">{{formatCurrency (divide this.totalAmount this.orderCount)}}/đơn</small>
+                                    <strong class="text-success">{{formatCurrency this.revenue}}</strong>
+                                    <br><small class="text-muted">{{formatCurrency (divide this.revenue this.orders)}}/đơn</small>
                                 </div>
                             </div>
                             {{#unless @last}}<hr>{{/unless}}
@@ -332,16 +308,24 @@
                                     <td><strong>{{this._id}}</strong></td>
                                     <td><strong class="text-success">{{formatCurrency this.revenue}}</strong></td>
                                     <td><span class="badge bg-primary">{{this.quantity}}</span></td>
-                                    <td><span class="text-info">{{this.orderCount}}</span></td>
+                                    <td><span class="text-info">{{this.orders}}</span></td>
                                     <td><span class="text-muted">{{formatCurrency (divide this.revenue this.quantity)}}</span></td>
                                     <td>
-                                        <div class="progress" style="width: 100px;">
-                                            <div class="progress-bar bg-success" role="progressbar" 
-                                                 style="width: {{multiply (divide this.revenue ../overview.totalRevenue) 100}}%">
-                                                {{multiply (divide this.revenue ../overview.totalRevenue) 100}}%
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress me-2" style="width: 80px; height: 20px;">
+                                                <div class="progress-bar bg-success" role="progressbar" 
+                                                     style="width: {{multiply (divideFloat this.revenue this.totalRevenue) 100}}%">
+                                                </div>
                                             </div>
+                                            <small class="text-muted">
+                                                {{round (multiply (divideFloat this.revenue this.totalRevenue) 100) 0}}%
+                                            </small>
                                         </div>
                                     </td>
+                                </tr>
+                                {{else}}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">Không có dữ liệu</td>
                                 </tr>
                                 {{/each}}
                             </tbody>
@@ -357,48 +341,136 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-// Daily Sales Chart
+// Daily Sales Chart - Improved version with complete date range
 const dailySalesData = {{{json dailySales}}};
-const dailyLabels = dailySalesData.map(item => item._id);
-const dailyOrderCounts = dailySalesData.map(item => item.orderCount);
-const dailyRevenues = dailySalesData.map(item => item.revenue);
+const startDate = new Date('{{{dateRange.startDate}}}');
+const endDate = new Date('{{{dateRange.endDate}}}');
+
+// Calculate the number of days in the range
+const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+console.log('📊 Date range:', startDate, 'to', endDate, '- Days:', daysDiff);
+
+let chartLabels = [];
+let chartRevenues = [];
+let chartOrderCounts = [];
+
+if (daysDiff <= 20) {
+    // Show daily data if <= 20 days
+    console.log('📊 Using daily view');
+    
+    // Create complete date range (including days with 0 revenue)
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const label = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+        
+        // Find data for this date
+        const dayData = dailySalesData.find(item => item._id === dateStr);
+        
+        chartLabels.push(label);
+        chartRevenues.push(dayData ? dayData.revenue : 0);
+        chartOrderCounts.push(dayData ? dayData.orderCount : 0);
+    }
+} else {
+    // Group by weeks if > 20 days
+    console.log('📊 Using weekly view (too many days)');
+    
+    // Group data by week
+    const weeklyData = {};
+    dailySalesData.forEach(item => {
+        const date = new Date(item._id);
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - date.getDay() + 1); // Monday of the week
+        const weekKey = weekStart.toISOString().split('T')[0];
+        
+        if (!weeklyData[weekKey]) {
+            weeklyData[weekKey] = { revenue: 0, orderCount: 0 };
+        }
+        weeklyData[weekKey].revenue += item.revenue;
+        weeklyData[weekKey].orderCount += item.orderCount;
+    });
+    
+    // Convert to arrays
+    Object.keys(weeklyData).sort().forEach(weekKey => {
+        const weekStart = new Date(weekKey);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        
+        const label = `${weekStart.getDate().toString().padStart(2, '0')}/${(weekStart.getMonth() + 1).toString().padStart(2, '0')} - ${weekEnd.getDate().toString().padStart(2, '0')}/${(weekEnd.getMonth() + 1).toString().padStart(2, '0')}`;
+        
+        chartLabels.push(label);
+        chartRevenues.push(weeklyData[weekKey].revenue);
+        chartOrderCounts.push(weeklyData[weekKey].orderCount);
+    });
+}
+
+console.log('📊 Chart data:', { labels: chartLabels, revenues: chartRevenues, orders: chartOrderCounts });
 
 const dailyCtx = document.getElementById('dailySalesChart').getContext('2d');
 new Chart(dailyCtx, {
-    type: 'line',
+    type: 'bar',
     data: {
-        labels: dailyLabels,
+        labels: chartLabels,
         datasets: [{
-            label: 'Số đơn hàng',
-            data: dailyOrderCounts,
-            borderColor: 'rgb(75, 192, 192)',
-            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-            yAxisID: 'y'
-        }, {
-            label: 'Doanh thu (VND)',
-            data: dailyRevenues,
-            borderColor: 'rgb(255, 99, 132)',
-            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-            yAxisID: 'y1'
+            label: daysDiff <= 20 ? 'Doanh thu hàng ngày (VND)' : 'Doanh thu hàng tuần (VND)',
+            data: chartRevenues,
+            backgroundColor: 'rgba(54, 162, 235, 0.8)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1,
+            borderRadius: 4,
+            borderSkipped: false,
         }]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top'
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const revenue = new Intl.NumberFormat('vi-VN', { 
+                            style: 'currency', 
+                            currency: 'VND' 
+                        }).format(context.parsed.y);
+                        const orders = chartOrderCounts[context.dataIndex];
+                        const period = daysDiff <= 20 ? 'ngày' : 'tuần';
+                        return [
+                            `Doanh thu ${period}: ${revenue}`,
+                            `Số đơn hàng: ${orders}`
+                        ];
+                    }
+                }
+            }
+        },
         scales: {
             y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                beginAtZero: true
-            },
-            y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
                 beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return new Intl.NumberFormat('vi-VN', { 
+                            style: 'currency', 
+                            currency: 'VND',
+                            notation: 'compact'
+                        }).format(value);
+                    }
+                },
                 grid: {
-                    drawOnChartArea: false,
+                    color: 'rgba(0, 0, 0, 0.1)'
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    maxRotation: daysDiff > 15 ? 45 : 0, // Rotate labels if too many
+                    font: {
+                        size: daysDiff > 15 ? 10 : 12 // Smaller font if many labels
+                    }
                 }
             }
         }
@@ -440,12 +512,14 @@ new Chart(categoryCtx, {
 
 // Hourly Sales Chart
 const hourlyData = {{{json hourlySales}}};
+console.log('📊 Hourly data from backend:', hourlyData);
 const hourLabels = Array.from({length: 24}, (_, i) => i + 'h');
 const hourlyOrderCounts = hourLabels.map(hour => {
     const hourNum = parseInt(hour);
     const found = hourlyData.find(item => item._id === hourNum);
-    return found ? found.orderCount : 0;
+    return found ? found.orders : 0;
 });
+console.log('📊 Hourly order counts:', hourlyOrderCounts);
 
 const hourlyCtx = document.getElementById('hourlySalesChart').getContext('2d');
 new Chart(hourlyCtx, {
@@ -465,7 +539,15 @@ new Chart(hourlyCtx, {
         maintainAspectRatio: false,
         scales: {
             y: {
-                beginAtZero: true
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1,
+                    callback: function(value) {
+                        if (Number.isInteger(value)) {
+                            return value;
+                        }
+                    }
+                }
             }
         }
     }
@@ -473,11 +555,16 @@ new Chart(hourlyCtx, {
 
 // Weekly Sales Chart
 const weeklyData = {{{json weeklySales}}};
-const weekLabels = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-const weeklyOrderCounts = [1,2,3,4,5,6,7].map(day => {
-    const found = weeklyData.find(item => item._id === day);
-    return found ? found.orderCount : 0;
+console.log('📊 Weekly data from backend:', weeklyData);
+const weekLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+const weeklyOrderCounts = [2,3,4,5,6,7,7].map((day, index) => {
+    // Monday=2, Tuesday=3, Wednesday=4, Thursday=5, Friday=6, Saturday=7, Sunday=7
+    const dayId = index === 6 ? 7 : day; // Last element (index 6) is Sunday with _id: 7
+    const found = weeklyData.find(item => item._id === dayId);
+    console.log(`📊 Day ${dayId} (${weekLabels[index]}): found =`, found);
+    return found ? found.orders : 0;
 });
+console.log('📊 Weekly order counts:', weeklyOrderCounts);
 
 const weeklyCtx = document.getElementById('weeklySalesChart').getContext('2d');
 new Chart(weeklyCtx, {
@@ -497,7 +584,15 @@ new Chart(weeklyCtx, {
         maintainAspectRatio: false,
         scales: {
             y: {
-                beginAtZero: true
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1,
+                    callback: function(value) {
+                        if (Number.isInteger(value)) {
+                            return value;
+                        }
+                    }
+                }
             }
         }
     }

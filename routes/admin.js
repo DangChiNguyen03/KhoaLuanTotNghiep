@@ -14,7 +14,6 @@ const { isAdmin, isAdminOrStaff, isAdminOrManager } = require('../middleware/aut
 
 // Login logs route - MUST be before root route
 router.get('/login-logs', isAdmin, async (req, res) => {
-    console.log('🔍 Login logs route accessed:', req.originalUrl);
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 20;
@@ -50,6 +49,29 @@ router.get('/login-logs', isAdmin, async (req, res) => {
         
         const matchConditions = filters;
         
+        // Tự động đánh dấu session cũ là inactive (sau 2 giờ không hoạt động)
+        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+        const expiredSessions = await LoginLog.find({
+            isActive: true,
+            loginTime: { $lt: twoHoursAgo },
+            logoutTime: { $exists: false }
+        });
+        
+        for (const session of expiredSessions) {
+            const sessionDuration = Math.floor((Date.now() - session.loginTime.getTime()) / (1000 * 60));
+            await LoginLog.updateOne(
+                { _id: session._id },
+                {
+                    $set: {
+                        isActive: false,
+                        logoutTime: new Date(),
+                        sessionDuration: sessionDuration,
+                        notes: 'Auto-expired after 2 hours of inactivity'
+                    }
+                }
+            );
+        }
+        
         // Lấy danh sách logs với phân trang và lọc
         const logs = await LoginLog.find(matchConditions)
             .populate('user', 'name email role')
@@ -74,34 +96,28 @@ router.get('/login-logs', isAdmin, async (req, res) => {
         const successCount = await LoginLog.countDocuments({ loginStatus: 'success' });
         const failedCount = await LoginLog.countDocuments({ loginStatus: 'failed' });
         
+        // Tính hoạt động đáng ngờ trong 24h
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const suspiciousLogs = await LoginLog.find({
+            $or: [
+                { riskLevel: 'high' },
+                { riskLevel: 'medium' },
+                { loginStatus: 'failed', loginTime: { $gte: twentyFourHoursAgo } }
+            ],
+            loginTime: { $gte: twentyFourHoursAgo }
+        });
+
         const stats = {
             success: allStats.find(s => s._id === 'success')?.count || 0,
             failed: allStats.find(s => s._id === 'failed')?.count || 0,
             total: allStats.reduce((sum, s) => sum + s.count, 0)
         };
         
-        console.log('📄 Rendering template: admin/login-logs');
-        console.log('📊 Data being passed:', { 
-            title: 'Quản lý Log Đăng nhập',
-            logsCount: logs.length,
-            stats,
-            currentPage: page,
-            totalPages,
-            totalLogs,
-            debugCounts: { successCount, failedCount }
-        });
-        
-        // Try absolute path first
-        const fs = require('fs');
-        const path = require('path');
-        const templatePath = path.join(__dirname, '..', 'views', 'admin', 'login-logs.hbs');
-        console.log('🔍 Checking template path:', templatePath);
-        console.log('📁 Template exists:', fs.existsSync(templatePath));
-        
         res.render('admin/login-logs', {
             title: 'Quản lý Log Đăng nhập',
             loginLogs: logs,
             stats,
+            suspiciousLogs,
             currentPage: page,
             totalPages,
             totalLogs,
@@ -177,7 +193,6 @@ router.get('/login-logs/export', isAdmin, async (req, res) => {
 
 // Admin Dashboard - Main route  
 router.get('/', isAdmin, (req, res) => {
-    console.log('🔍 Admin root route accessed:', req.originalUrl);
     res.redirect('/admin/dashboard');
 });
 
@@ -357,7 +372,6 @@ router.delete('/products/delete/:id', isAdmin, async (req, res) => {
 
 // Danh sách khách hàng
 router.get('/customers', async (req, res) => {
-    console.log('🔍 Customers route accessed by user:', req.user?.email, 'role:', req.user?.role);
     
     // Check permissions manually with detailed logging
     if (!req.user) {
@@ -374,7 +388,7 @@ router.get('/customers', async (req, res) => {
         return res.redirect('/users/login');
     }
     
-    console.log('👤 User found:', user.email, 'role:', user.role, 'permissions:', user.permissions);
+    console.log('🧔 User found:', user.email, 'role:', user.role, 'permissions:', user.permissions);
     
     // Get user permissions
     const { DEFAULT_PERMISSIONS } = require('../middleware/permissions');
@@ -382,23 +396,14 @@ router.get('/customers', async (req, res) => {
         ? user.permissions 
         : DEFAULT_PERMISSIONS[user.role] || [];
     
-    console.log('🔑 User permissions:', userPermissions);
-    console.log('🎯 Required permission: manage_customers');
-    console.log('✅ Has permission:', userPermissions.includes('manage_customers'));
-    console.log('🔍 DEFAULT_PERMISSIONS for admin:', DEFAULT_PERMISSIONS.admin);
-    console.log('🔍 User role:', user.role);
-    console.log('🔍 User custom permissions:', user.permissions);
     
     // For debugging - temporarily allow admin role regardless of permissions
     if (user.role === 'admin') {
-        console.log('🚀 Admin role detected - bypassing permission check for debugging');
     } else if (!userPermissions.includes('manage_customers')) {
-        console.log('❌ User does not have manage_customers permission');
         req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
         return res.redirect('/admin/dashboard');
     }
     
-    console.log('✅ Permission check passed, proceeding to customers list');
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
@@ -513,25 +518,25 @@ router.put('/customers/:id', isAdmin, async (req, res) => {
     }
 });
 
-// Xóa khách hàng (soft delete - chuyển role thành 'inactive')
+// Xóa khách hàng hoàn toàn (hard delete - xóa cả đơn hàng)
 router.delete('/customers/:id', isAdmin, async (req, res) => {
     try {
         console.log('🗑️ DELETE /customers/:id được gọi với ID:', req.params.id);
         console.log('🗑️ Method:', req.method);
         console.log('🗑️ User:', req.user?.email);
         
-        // Kiểm tra xem khách hàng có đơn hàng không
+        // Xóa khách hàng hoàn toàn (bao gồm cả đơn hàng nếu có)
         const orderCount = await Order.countDocuments({ user: req.params.id });
         
         if (orderCount > 0) {
-            // Nếu có đơn hàng, chỉ deactivate
-            await User.findByIdAndUpdate(req.params.id, { role: 'inactive' });
-            req.flash('success_msg', 'Đã vô hiệu hóa tài khoản khách hàng');
-        } else {
-            // Nếu không có đơn hàng, có thể xóa hoàn toàn
-            await User.findByIdAndDelete(req.params.id);
-            req.flash('success_msg', 'Đã xóa khách hàng thành công');
+            // Xóa tất cả đơn hàng của khách hàng trước
+            await Order.deleteMany({ user: req.params.id });
+            req.flash('info_msg', `Đã xóa ${orderCount} đơn hàng của khách hàng`);
         }
+        
+        // Xóa khách hàng hoàn toàn
+        await User.findByIdAndDelete(req.params.id);
+        req.flash('success_msg', 'Đã xóa khách hàng và tất cả dữ liệu liên quan thành công');
         
         res.redirect('/admin/customers');
     } catch (err) {
@@ -548,18 +553,18 @@ router.post('/customers/:id/delete', isAdmin, async (req, res) => {
         console.log('🗑️ Method:', req.method);
         console.log('🗑️ User:', req.user?.email);
         
-        // Kiểm tra xem khách hàng có đơn hàng không
+        // Xóa khách hàng hoàn toàn (bao gồm cả đơn hàng nếu có)
         const orderCount = await Order.countDocuments({ user: req.params.id });
         
         if (orderCount > 0) {
-            // Nếu có đơn hàng, chỉ deactivate
-            await User.findByIdAndUpdate(req.params.id, { role: 'inactive' });
-            req.flash('success_msg', 'Đã vô hiệu hóa tài khoản khách hàng');
-        } else {
-            // Nếu không có đơn hàng, có thể xóa hoàn toàn
-            await User.findByIdAndDelete(req.params.id);
-            req.flash('success_msg', 'Đã xóa khách hàng thành công');
+            // Xóa tất cả đơn hàng của khách hàng trước
+            await Order.deleteMany({ user: req.params.id });
+            req.flash('info_msg', `Đã xóa ${orderCount} đơn hàng của khách hàng`);
         }
+        
+        // Xóa khách hàng hoàn toàn
+        await User.findByIdAndDelete(req.params.id);
+        req.flash('success_msg', 'Đã xóa khách hàng và tất cả dữ liệu liên quan thành công');
         
         res.redirect('/admin/customers');
     } catch (err) {
@@ -569,9 +574,88 @@ router.post('/customers/:id/delete', isAdmin, async (req, res) => {
     }
 });
 
-// ===== SALES MANAGEMENT ROUTES =====
+// ===== VOUCHER MANAGEMENT =====
+const Voucher = require('../models/Voucher');
 
-// Dashboard thống kê doanh số
+// Trang quản lý voucher
+router.get('/vouchers', isAdmin, async (req, res) => {
+    try {
+        const vouchers = await Voucher.find().sort({ createdAt: -1 });
+        const categories = await Product.distinct('category');
+        res.render('admin/vouchers', {
+            title: 'Quản lý Mã giảm giá',
+            vouchers,
+            categories, // Gửi danh sách categories sang view
+            messages: req.flash()
+        });
+    } catch (error) {
+        console.error('Lỗi khi tải trang quản lý voucher:', error);
+        req.flash('error_msg', 'Lỗi server khi tải trang voucher');
+        res.redirect('/admin/dashboard');
+    }
+});
+
+// Thêm voucher mới
+router.post('/vouchers', isAdmin, async (req, res) => {
+    try {
+        const {
+            code, description, discountType, discountValue,
+            applicableCategory, startTime, endTime,
+            specialDay, applicableSize, fixedPrice // New fields
+        } = req.body;
+
+        const voucherData = {
+            code,
+            description,
+            discountType,
+            applicableCategory: applicableCategory || null,
+            startTime: startTime ? parseInt(startTime) : null,
+            endTime: endTime ? parseInt(endTime) : null,
+        };
+
+        if (discountType === 'special_day_fixed_price') {
+            voucherData.specialDay = parseInt(specialDay);
+            voucherData.applicableSize = applicableSize.toUpperCase();
+            voucherData.fixedPrice = parseFloat(fixedPrice);
+            // For this type, discountValue is not strictly needed but we can set it to 0
+            voucherData.discountValue = 0; 
+        } else {
+            voucherData.discountValue = parseFloat(discountValue);
+        }
+
+        const newVoucher = new Voucher(voucherData);
+        await newVoucher.save();
+        req.flash('success_msg', 'Tạo mã giảm giá thành công!');
+        res.redirect('/admin/vouchers');
+
+    } catch (error) {
+        console.error('Lỗi khi tạo voucher:', error);
+        if (error.code === 11000) { // Lỗi trùng mã
+            req.flash('error_msg', 'Mã giảm giá này đã tồn tại.');
+        } else {
+            req.flash('error_msg', 'Có lỗi xảy ra khi tạo mã giảm giá.');
+        }
+        res.redirect('/admin/vouchers');
+    }
+});
+
+// Xóa voucher
+router.post('/vouchers/delete/:id', isAdmin, async (req, res) => {
+    try {
+        await Voucher.findByIdAndDelete(req.params.id);
+        req.flash('success_msg', 'Đã xóa mã giảm giá thành công.');
+        res.redirect('/admin/vouchers');
+    } catch (error) {
+        console.error('Lỗi khi xóa voucher:', error);
+        req.flash('error_msg', 'Lỗi server khi xóa voucher.');
+        res.redirect('/admin/vouchers');
+    }
+});
+
+
+// ===== REPORTING ROUTES =====
+
+// Product Reportard thống kê doanh số
 router.get('/dashboard', isAdminOrStaff, async (req, res) => {
     try {
         const now = new Date();
@@ -730,9 +814,25 @@ router.get('/orders', isAdminOrStaff, async (req, res) => {
             completed: await Order.countDocuments({ status: 'completed' })
         };
         
+        // Tính tổng doanh thu từ các đơn hàng hoàn thành bằng aggregation
+        let totalRevenue = 0;
+        try {
+            const revenueResult = await Order.aggregate([
+                { $match: { status: 'completed' } },
+                { $group: { _id: null, totalRevenue: { $sum: '$totalPrice' } } }
+            ]);
+            totalRevenue = revenueResult.length > 0 ? (revenueResult[0].totalRevenue || 0) : 0;
+            
+            // Revenue calculation completed successfully
+        } catch (revenueError) {
+            console.log('Lỗi khi tính tổng doanh thu:', revenueError);
+            totalRevenue = 0;
+        }
+        
         res.render('admin/orders', {
             orders,
             statusStats,
+            totalRevenue,
             currentPage: page,
             totalPages,
             status,
@@ -1103,9 +1203,7 @@ router.post('/login-logs/:id/mark-risk', isAdmin, async (req, res) => {
         
         await LoginLog.findByIdAndUpdate(req.params.id, {
             riskLevel,
-            notes,
-            reviewedBy: req.user._id,
-            reviewedAt: new Date()
+            notes
         });
         
         req.flash('success_msg', 'Đã cập nhật mức độ rủi ro');
@@ -1116,6 +1214,7 @@ router.post('/login-logs/:id/mark-risk', isAdmin, async (req, res) => {
         res.redirect('/admin/login-logs');
     }
 });
+
 
 // ==================== SYSTEM USERS MANAGEMENT ====================
 
@@ -1200,7 +1299,7 @@ router.post('/system-users', hasPermission('manage_users'), async (req, res) => 
     try {
         const { 
             name, email, password, role, employeeId, department, 
-            hireDate, salary, manager, permissions 
+            hireDate, salary, manager, permissions, phone, address, birthday 
         } = req.body;
         
         // Validate required fields
@@ -1235,6 +1334,9 @@ router.post('/system-users', hasPermission('manage_users'), async (req, res) => 
             salary: salary || 0,
             manager: manager || null,
             permissions: permissions || DEFAULT_PERMISSIONS[role] || [],
+            phone: phone || '',
+            address: address || '',
+            birthday: birthday || null,
             isActive: true
         });
         
@@ -1271,7 +1373,7 @@ router.put('/system-users/:id', hasPermission('manage_users'), async (req, res) 
     try {
         const { 
             name, email, role, employeeId, department, 
-            hireDate, salary, manager, permissions, isActive 
+            hireDate, salary, manager, permissions, isActive, phone, address, birthday 
         } = req.body;
         
         const user = await User.findById(req.params.id);
@@ -1312,6 +1414,9 @@ router.put('/system-users/:id', hasPermission('manage_users'), async (req, res) 
             salary,
             manager: manager || null,
             permissions: permissions || DEFAULT_PERMISSIONS[role] || [],
+            phone: phone || '',
+            address: address || '',
+            birthday: birthday || null,
             isActive: isActive === 'true'
         });
         
@@ -1618,40 +1723,6 @@ router.get('/api/suspicious-activity', hasPermission('manage_users'), async (req
     }
 });
 
-// Xóa audit logs cũ (chỉ admin)
-router.post('/audit-logs/cleanup', hasRole('admin'), async (req, res) => {
-    try {
-        const { days = 90 } = req.body;
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - parseInt(days));
-        
-        const result = await AuditLog.deleteMany({
-            timestamp: { $lt: cutoffDate }
-        });
-        
-        // Log the cleanup action
-        await logAuditAction(
-            req,
-            'data_cleanup',
-            'System',
-            null,
-            {
-                action: 'audit_logs_cleanup',
-                daysKept: parseInt(days),
-                recordsDeleted: result.deletedCount,
-                cleanupBy: req.user._id
-            }
-        );
-        
-        req.flash('success_msg', `Đã xóa ${result.deletedCount} bản ghi audit log cũ hơn ${days} ngày`);
-        res.redirect('/admin/audit-logs');
-        
-    } catch (error) {
-        console.error('Error cleaning up audit logs:', error);
-        req.flash('error_msg', 'Có lỗi khi dọn dẹp audit logs');
-        res.redirect('/admin/audit-logs');
-    }
-});
 
 // ==================== REPORTS MODULE ====================
 
@@ -1659,7 +1730,7 @@ router.post('/audit-logs/cleanup', hasRole('admin'), async (req, res) => {
 
 // Customer Report (Báo cáo khách hàng)
 router.get('/reports/customers', async (req, res) => {
-    console.log('🔍 Customer report route accessed by user:', req.user?.email, 'role:', req.user?.role);
+    console.log('🚪 Customer report route accessed by user:', req.user?.email, 'role:', req.user?.role);
     
     // Check permissions manually with detailed logging
     if (!req.user) {
@@ -1676,7 +1747,7 @@ router.get('/reports/customers', async (req, res) => {
         return res.redirect('/users/login');
     }
     
-    console.log('👤 User found:', user.email, 'role:', user.role, 'permissions:', user.permissions);
+    console.log('🧔 User found:', user.email, 'role:', user.role, 'permissions:', user.permissions);
     
     // Get user permissions
     const { DEFAULT_PERMISSIONS } = require('../middleware/permissions');
@@ -1684,7 +1755,7 @@ router.get('/reports/customers', async (req, res) => {
         ? user.permissions 
         : DEFAULT_PERMISSIONS[user.role] || [];
     
-    console.log('🔑 User permissions:', userPermissions);
+    console.log('🔐 User permissions:', userPermissions);
     console.log('🎯 Required permission: view_reports');
     console.log('✅ Has permission:', userPermissions.includes('view_reports'));
     
@@ -1706,15 +1777,15 @@ router.get('/reports/customers', async (req, res) => {
         const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
         const reportEndDate = endDate ? new Date(endDate + 'T23:59:59') : defaultEndDate;
         
-        console.log('🔍 Debug date range:', { reportStartDate, reportEndDate });
+        console.log('🚪 Debug date range:', { reportStartDate, reportEndDate });
         
         // Debug: Kiểm tra dữ liệu user thực tế
         const allUsers = await User.find({}).select('email role createdAt lastLogin date').limit(10);
-        console.log('👥 Sample users in DB:', allUsers);
+        console.log('🧑 Sample users in DB:', allUsers);
         
         // Kiểm tra field nào có dữ liệu
         const userFieldCheck = await User.findOne({});
-        console.log('🔍 User schema fields:', Object.keys(userFieldCheck.toObject()));
+        console.log('🚪 User schema fields:', Object.keys(userFieldCheck.toObject()));
         
         // Tổng tài khoản đăng ký trong khoảng thời gian (tất cả role) - sử dụng field 'date'
         const newCustomerStats = await User.aggregate([
@@ -1731,7 +1802,7 @@ router.get('/reports/customers', async (req, res) => {
             }
         ]);
 
-        console.log('📊 New users result:', newCustomerStats);
+        console.log('📈 New users result:', newCustomerStats);
 
         // Tài khoản hoạt động - Sử dụng LoginLog collection để đếm user đăng nhập
         const activeCustomerStats = await User.aggregate([
@@ -1757,7 +1828,7 @@ router.get('/reports/customers', async (req, res) => {
             }
         ]);
 
-        console.log('🟢 Active users result:', activeCustomerStats);
+        console.log('💨 Active users result:', activeCustomerStats);
 
         // Debug: Kiểm tra Order data
         const sampleOrders = await Order.find({}).select('user totalPrice status date createdAt').limit(5);
@@ -2111,8 +2182,8 @@ router.get('/reports/customers', async (req, res) => {
         }
         
         console.log('🎯 About to render admin/reports/customers template');
-        console.log('📊 Report data keys:', Object.keys(reportData));
-        console.log('📊 Final report statistics:', {
+        console.log('📈 Report data keys:', Object.keys(reportData));
+        console.log('📈 Final report statistics:', {
             totalCustomers: reportData.statistics.totalCustomers,
             activeCustomers: reportData.statistics.activeCustomers,
             newCustomerStatsRaw: newCustomerStats,
@@ -2121,7 +2192,7 @@ router.get('/reports/customers', async (req, res) => {
         
         res.render('admin/reports/customers', {
             ...reportData,
-            title: 'Báo cáo khách hàng',
+            title: 'Báo cáo Khách hàng',
             layout: 'main'
         });
         
@@ -2483,13 +2554,20 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
     try {
         const { startDate, endDate, exportFormat, paymentMethod, status } = req.query;
         
-        // Default date range (last 30 days)
+        // Default date range (last 14 days for better chart readability)
         const defaultEndDate = new Date();
         const defaultStartDate = new Date();
-        defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+        defaultStartDate.setDate(defaultStartDate.getDate() - 14);
         
         const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
         const reportEndDate = endDate ? new Date(endDate + 'T23:59:59') : defaultEndDate;
+        
+        // Debug logs
+        console.log('💳 Payment Report - Date range:', {
+            startDate: reportStartDate.toISOString(),
+            endDate: reportEndDate.toISOString(),
+            filters: { paymentMethod, status }
+        });
         
         // Build filter for payments
         const paymentFilter = {
@@ -2497,6 +2575,11 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
         };
         if (paymentMethod) paymentFilter.paymentMethod = paymentMethod;
         if (status) paymentFilter.status = status;
+        
+        // Debug: Check total payments in DB
+        const totalPaymentsInDB = await Payment.countDocuments();
+        const paymentsInRange = await Payment.countDocuments(paymentFilter);
+        console.log('💳 Payment counts:', { totalPaymentsInDB, paymentsInRange });
         
         // Payment statistics
         const paymentStats = await Payment.aggregate([
@@ -2514,6 +2597,34 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
             }
         ]);
         
+        console.log('💳 Payment stats result:', paymentStats[0]);
+        
+        // Debug: Show what should be displayed
+        const displayStats = paymentStats[0] || { 
+            totalPayments: 0, 
+            totalAmount: 0, 
+            avgAmount: 0, 
+            successfulPayments: 0, 
+            failedPayments: 0, 
+            pendingPayments: 0 
+        };
+        console.log('💳 Stats that will be displayed:', {
+            totalPayments: displayStats.totalPayments,
+            totalAmount: displayStats.totalAmount,
+            avgAmount: displayStats.avgAmount,
+            dateRange: `${reportStartDate.toISOString().split('T')[0]} to ${reportEndDate.toISOString().split('T')[0]}`
+        });
+        
+        // Debug: Check recent payments
+        const recentPayments = await Payment.find().sort({ createdAt: -1 }).limit(5);
+        console.log('💳 Recent payments:', recentPayments.map(p => ({
+            id: p._id,
+            amount: p.amount,
+            status: p.status,
+            createdAt: p.createdAt,
+            date: p.createdAt.toISOString().split('T')[0]
+        })));
+        
         // Payment trends by day
         const paymentTrends = await Payment.aggregate([
             { $match: paymentFilter },
@@ -2529,6 +2640,52 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
             },
             { $sort: { '_id.date': 1 } }
         ]);
+        
+        console.log('💳 Payment trends result:', paymentTrends);
+        console.log('💳 Payment filter used:', paymentFilter);
+        
+        // Fill missing dates with zero values for continuous chart
+        const filledPaymentTrends = [];
+        const fillStartDate = new Date(reportStartDate);
+        const fillEndDate = new Date(reportEndDate);
+        
+        // Create a map for quick lookup
+        const trendsMap = {};
+        paymentTrends.forEach(trend => {
+            const key = `${trend._id.date}_${trend._id.status}`;
+            trendsMap[key] = trend;
+        });
+        
+        // Fill all dates in range
+        for (let d = new Date(fillStartDate); d <= fillEndDate; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            
+            // Add paid transactions for this date
+            const paidKey = `${dateStr}_paid`;
+            if (trendsMap[paidKey]) {
+                filledPaymentTrends.push(trendsMap[paidKey]);
+            } else {
+                filledPaymentTrends.push({
+                    _id: { date: dateStr, status: 'paid' },
+                    count: 0,
+                    amount: 0
+                });
+            }
+            
+            // Add failed transactions for this date
+            const failedKey = `${dateStr}_failed`;
+            if (trendsMap[failedKey]) {
+                filledPaymentTrends.push(trendsMap[failedKey]);
+            } else {
+                filledPaymentTrends.push({
+                    _id: { date: dateStr, status: 'failed' },
+                    count: 0,
+                    amount: 0
+                });
+            }
+        }
+        
+        console.log('💳 Filled payment trends (first 10):', filledPaymentTrends.slice(0, 10));
         
         // Payment methods breakdown
         const paymentMethodStats = await Payment.aggregate([
@@ -2565,6 +2722,17 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
             }
         });
         
+        // Debug top transactions
+        console.log('💰 Top transactions sample:', topTransactions.slice(0, 2).map(p => ({
+            id: p._id,
+            amount: p.amount,
+            status: p.status,
+            createdAt: p.createdAt,
+            paidAt: p.paidAt,
+            hasOrder: !!p.order,
+            orderStatus: p.order?.status
+        })));
+        
         // Failed payments analysis
         const failedPayments = await Payment.find({
             ...paymentFilter,
@@ -2575,8 +2743,56 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
         .sort({ createdAt: -1 })
         .limit(10);
         
-        // Revenue by hour analysis
+        // Revenue by hour analysis - TODAY ONLY for clearer insights (Vietnam timezone UTC+7)
+        const now = new Date();
+        
+        // Get today's date string in Vietnam timezone
+        const vietnamToday = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD format
+        
+        console.log('⏰ Today in Vietnam:', vietnamToday);
+        
         const hourlyRevenue = await Payment.aggregate([
+            { 
+                $match: { 
+                    status: 'paid'
+                }
+            },
+            {
+                $addFields: {
+                    vietnamDate: { 
+                        $dateToString: { 
+                            format: '%Y-%m-%d',
+                            date: '$createdAt',
+                            timezone: 'Asia/Ho_Chi_Minh'
+                        }
+                    },
+                    vietnamHour: { 
+                        $hour: { 
+                            date: '$createdAt',
+                            timezone: 'Asia/Ho_Chi_Minh'
+                        }
+                    }
+                }
+            },
+            {
+                $match: {
+                    vietnamDate: vietnamToday
+                }
+            },
+            {
+                $group: {
+                    _id: '$vietnamHour',
+                    count: { $sum: 1 },
+                    revenue: { $sum: '$amount' }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+        
+        console.log('💳 Today hourly revenue:', hourlyRevenue);
+        
+        // Average hourly revenue for the selected period (for comparison)
+        const avgHourlyRevenue = await Payment.aggregate([
             { 
                 $match: { 
                     ...paymentFilter,
@@ -2587,46 +2803,34 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
                 $group: {
                     _id: { $hour: '$createdAt' },
                     count: { $sum: 1 },
-                    revenue: { $sum: '$amount' }
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
-        
-        // Payment processing time analysis
-        const processingTimeStats = await Payment.aggregate([
-            {
-                $match: {
-                    ...paymentFilter,
-                    status: 'paid',
-                    paidAt: { $exists: true }
+                    revenue: { $sum: '$amount' },
+                    days: { $addToSet: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } } }
                 }
             },
             {
                 $project: {
-                    processingTime: {
-                        $divide: [
-                            { $subtract: ['$paidAt', '$createdAt'] },
-                            1000 // Convert to seconds
-                        ]
-                    }
+                    hour: '$_id',
+                    avgRevenue: { $divide: ['$revenue', { $size: '$days' }] },
+                    totalRevenue: '$revenue',
+                    totalCount: '$count',
+                    daysCount: { $size: '$days' }
                 }
             },
-            {
-                $group: {
-                    _id: null,
-                    avgProcessingTime: { $avg: '$processingTime' },
-                    minProcessingTime: { $min: '$processingTime' },
-                    maxProcessingTime: { $max: '$processingTime' }
-                }
-            }
+            { $sort: { hour: 1 } }
         ]);
+        
+        // Payment processing time analysis (REMOVED)
+        
+        // Debug logs for processing time (REMOVED)
+        
+        // Fake data logic for processing time (REMOVED)
         
         const reportData = {
             dateRange: {
                 startDate: reportStartDate,
                 endDate: reportEndDate
             },
+            today: new Date(), // For displaying today's date in template
             statistics: paymentStats[0] || { 
                 totalPayments: 0, 
                 totalAmount: 0, 
@@ -2635,16 +2839,13 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
                 failedPayments: 0, 
                 pendingPayments: 0 
             },
-            paymentTrends,
+            paymentTrends: filledPaymentTrends,
             paymentMethodStats,
             topTransactions,
             failedPayments,
-            hourlyRevenue,
-            processingTime: processingTimeStats[0] || { 
-                avgProcessingTime: 0, 
-                minProcessingTime: 0, 
-                maxProcessingTime: 0 
-            }
+            hourlyRevenue, // Today's hourly revenue
+            avgHourlyRevenue, // Average hourly revenue for the period
+            // processingTime: finalProcessingTime (REMOVED)
         };
         
         // Export functionality
@@ -2688,7 +2889,8 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
             { name: 'cash', displayName: 'Tiền mặt' },
             { name: 'card', displayName: 'Thẻ tín dụng' },
             { name: 'momo', displayName: 'MoMo' },
-            { name: 'banking', displayName: 'Chuyển khoản' }
+            { name: 'banking', displayName: 'Chuyển khoản' },
+            { name: 'paypal', displayName: 'PayPal' }
         ];
         
         res.render('admin/reports/payments', {
@@ -2707,221 +2909,410 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
 
 // Product Report (Báo cáo sản phẩm)
 router.get('/reports/products', hasPermission('view_reports'), async (req, res) => {
+    console.log('🚀 Product Reports route accessed!');
     try {
-        const { startDate, endDate, exportFormat, category, status } = req.query;
+        const { startDate, endDate, exportFormat, category } = req.query;
         
-        // Default date range (last 30 days)
+        // Default date range (last 14 days for consistency with other reports)
         const defaultEndDate = new Date();
         const defaultStartDate = new Date();
-        defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+        defaultStartDate.setDate(defaultStartDate.getDate() - 14);
         
         const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
         const reportEndDate = endDate ? new Date(endDate + 'T23:59:59') : defaultEndDate;
         
-        // Build filter for products
-        const productFilter = {};
-        if (category) productFilter.category = category;
-        if (status) productFilter.isAvailable = status === 'available';
+        // Debug: Check if there are any orders in the database
+        const totalOrders = await Order.countDocuments();
+        const completedOrders = await Order.countDocuments({ status: 'completed' });
+        const ordersInRange = await Order.countDocuments({
+            createdAt: { $gte: reportStartDate, $lte: reportEndDate },
+            status: 'completed'
+        });
+        console.log('📦 Order counts:', { totalOrders, completedOrders, ordersInRange });
         
-        // Product statistics
-        const productStats = await Product.aggregate([
-            { $match: productFilter },
-            {
-                $group: {
-                    _id: null,
-                    totalProducts: { $sum: 1 },
-                    availableProducts: { $sum: { $cond: ['$isAvailable', 1, 0] } },
-                    unavailableProducts: { $sum: { $cond: ['$isAvailable', 0, 1] } },
-                    avgPrice: { $avg: '$price' }
-                }
-            }
-        ]);
+        // Debug: Check sample order structure
+        const sampleOrder = await Order.findOne({ status: 'completed' }).populate('items.product');
+        console.log('📦 Sample order structure:', JSON.stringify(sampleOrder, null, 2));
         
-        // Best selling products
-        const bestSellingProducts = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
-            { $unwind: '$items' },
-            {
-                $group: {
-                    _id: '$items.product',
-                    totalQuantity: { $sum: '$items.quantity' },
-                    totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } },
-                    orderCount: { $sum: 1 },
-                    avgPrice: { $avg: '$items.price' }
-                }
-            },
-            {
-                $lookup: {
-                    from: 'products',
-                    localField: '_id',
-                    foreignField: '_id',
-                    as: 'product'
-                }
-            },
-            { $unwind: '$product' },
-            {
-                $project: {
-                    productName: '$product.name',
-                    productCategory: '$product.category',
-                    productImage: '$product.image',
-                    totalQuantity: 1,
-                    totalRevenue: 1,
-                    orderCount: 1,
-                    avgPrice: 1
-                }
-            },
-            { $sort: { totalQuantity: -1 } },
-            { $limit: 20 }
-        ]);
+        // Build match conditions
+        const orderMatch = {
+            createdAt: { $gte: reportStartDate, $lte: reportEndDate },
+            status: 'completed'
+        };
         
-        // Product category performance
-        const categoryPerformance = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
+        // Product performance statistics (based on sales in date range)
+        const productStats = await Order.aggregate([
+            { $match: orderMatch },
             { $unwind: '$items' },
             {
                 $lookup: {
                     from: 'products',
                     localField: 'items.product',
                     foreignField: '_id',
-                    as: 'product'
+                    as: 'productInfo'
                 }
             },
-            { $unwind: '$product' },
+            { $unwind: '$productInfo' },
+            {
+                $addFields: {
+                    itemPrice: {
+                        $let: {
+                            vars: {
+                                sizeObj: {
+                                    $arrayElemAt: [
+                                        {
+                                            $filter: {
+                                                input: '$productInfo.sizes',
+                                                cond: { $eq: ['$$this.size', '$items.size'] }
+                                            }
+                                        },
+                                        0
+                                    ]
+                                }
+                            },
+                            in: '$$sizeObj.price'
+                        }
+                    }
+                }
+            },
             {
                 $group: {
-                    _id: '$product.category',
-                    totalQuantity: { $sum: '$items.quantity' },
-                    totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } },
+                    _id: null,
+                    totalProductsSold: { $sum: '$items.quantity' },
+                    totalRevenue: { $sum: { $multiply: ['$itemPrice', '$items.quantity'] } },
                     uniqueProducts: { $addToSet: '$items.product' },
-                    avgPrice: { $avg: '$items.price' }
+                    totalOrders: { $sum: 1 }
                 }
             },
             {
                 $project: {
-                    category: '$_id',
-                    totalQuantity: 1,
+                    totalProductsSold: 1,
                     totalRevenue: 1,
                     uniqueProductCount: { $size: '$uniqueProducts' },
-                    avgPrice: 1
+                    totalOrders: 1,
+                    avgRevenuePerOrder: { $divide: ['$totalRevenue', '$totalOrders'] }
+                }
+            }
+        ]);
+        
+        // Best selling products - Calculate revenue based on actual order totals (after discounts)
+        const bestSellingProducts = await Order.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
+                    status: { $ne: 'cancelled' }
+                }
+            },
+            {
+                $addFields: {
+                    // Calculate total original price for this order
+                    originalOrderTotal: {
+                        $sum: {
+                            $map: {
+                                input: "$items",
+                                as: "item",
+                                in: {
+                                    $multiply: [
+                                        "$$item.quantity",
+                                        { $ifNull: ["$$item.price", 50000] } // fallback price if missing
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.product",
+                    foreignField: "_id",
+                    as: "productInfo"
+                }
+            },
+            { $unwind: "$productInfo" },
+            {
+                $addFields: {
+                    // Calculate original item price
+                    originalItemPrice: {
+                        $cond: [
+                            { $eq: ['$productInfo.category', 'Topping'] },
+                            { 
+                                $ifNull: [
+                                    '$productInfo.price', 
+                                    // If topping price is null, try to get from sizes[0] or default to 8000
+                                    {
+                                        $ifNull: [
+                                            { $arrayElemAt: ['$productInfo.sizes.price', 0] },
+                                            8000
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                $let: {
+                                    vars: {
+                                        sizeObj: {
+                                            $arrayElemAt: [
+                                                {
+                                                    $filter: {
+                                                        input: "$productInfo.sizes",
+                                                        cond: { $eq: ["$$this.size", "$items.size"] }
+                                                    }
+                                                },
+                                                0
+                                            ]
+                                        }
+                                    },
+                                    in: {
+                                        $cond: [
+                                            { $ne: ["$$sizeObj", null] },
+                                            "$$sizeObj.price",
+                                            50000
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    // Calculate actual revenue for this item
+                    actualItemRevenue: {
+                        $cond: [
+                            // If this is a topping, always use full price (toppings are never discounted)
+                            { $eq: ['$productInfo.category', 'Topping'] },
+                            { $multiply: ["$items.quantity", "$originalItemPrice"] },
+                            // For main products: if no voucher applied, use original price
+                            {
+                                $cond: [
+                                    // Check if voucher was applied (originalPrice exists and differs from totalPrice)
+                                    { 
+                                        $and: [
+                                            { $ne: [{ $ifNull: ["$originalPrice", 0] }, 0] },
+                                            { $ne: ["$originalPrice", "$totalPrice"] }
+                                        ]
+                                    },
+                                    // Voucher applied: calculate proportional discount
+                                    {
+                                        $cond: [
+                                            { $gt: ["$originalOrderTotal", 0] },
+                                            {
+                                                $multiply: [
+                                                    "$totalPrice",
+                                                    {
+                                                        $divide: [
+                                                            { $multiply: ["$items.quantity", "$originalItemPrice"] },
+                                                            "$originalOrderTotal"
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            { $multiply: ["$items.quantity", "$originalItemPrice"] }
+                                        ]
+                                    },
+                                    // No voucher: use original item price
+                                    { $multiply: ["$items.quantity", "$originalItemPrice"] }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: "$items.product",
+                    productName: { $first: "$productInfo.name" },
+                    productCategory: { $first: "$productInfo.category" },
+                    productImage: { $first: "$productInfo.image" },
+                    totalQuantity: { $sum: "$items.quantity" },
+                    totalRevenue: { $sum: "$actualItemRevenue" },
+                    orderCount: { $addToSet: "$_id" }
+                }
+            },
+            {
+                $project: {
+                    productName: 1,
+                    productCategory: 1,
+                    productImage: 1,
+                    totalQuantity: 1,
+                    totalRevenue: 1,
+                    orderCount: { $size: "$orderCount" },
+                    avgPrice: { 
+                        $cond: [
+                            { $eq: ["$totalQuantity", 0] }, 
+                            0, 
+                            { $divide: ["$totalRevenue", "$totalQuantity"] } 
+                        ]
+                    }
+                }
+            },
+            { $sort: { totalRevenue: -1 } },
+            { $limit: 20 }
+        ]);
+        
+        // Category Revenue Distribution for Pie Chart
+        const categoryRevenue = await Order.aggregate([
+            { $match: orderMatch },
+            { $unwind: '$items' },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: 'items.product',
+                    foreignField: '_id',
+                    as: 'productInfo'
+                }
+            },
+            { $unwind: '$productInfo' },
+            {
+                $addFields: {
+                    itemPrice: {
+                        $cond: [
+                            // If product category is 'Topping', use direct price
+                            { $eq: ['$productInfo.category', 'Topping'] },
+                            { $ifNull: ['$productInfo.price', 0] },
+                            // Otherwise, use size-based pricing
+                            {
+                                $let: {
+                                    vars: {
+                                        sizeObj: {
+                                            $arrayElemAt: [
+                                                {
+                                                    $filter: {
+                                                        input: '$productInfo.sizes',
+                                                        cond: { $eq: ['$$this.size', '$items.size'] }
+                                                    }
+                                                },
+                                                0
+                                            ]
+                                        }
+                                    },
+                                    in: {
+                                        $cond: [
+                                            { $ne: ['$$sizeObj', null] },
+                                            '$$sizeObj.price',
+                                            { $ifNull: ['$productInfo.price', 0] }
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: '$productInfo.category',
+                    totalRevenue: { $sum: { $multiply: ['$itemPrice', '$items.quantity'] } },
+                    totalQuantity: { $sum: '$items.quantity' }
                 }
             },
             { $sort: { totalRevenue: -1 } }
         ]);
         
-        // Low stock products
-        const lowStockProducts = await Product.find({
-            ...productFilter,
-            stock: { $lt: 10 },
-            isAvailable: true
-        }).sort({ stock: 1 }).limit(10);
+        // Top 5 Products for Bar Chart (subset of bestSellingProducts)
+        const top5Products = bestSellingProducts.slice(0, 5);
+        const maxQuantity = top5Products.length > 0 ? Math.max(...top5Products.map(p => p.totalQuantity)) : 1;
+        const totalQuantityTop5 = top5Products.reduce((sum, p) => sum + p.totalQuantity, 0);
         
-        // Product trends over time
-        const productTrends = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
-            { $unwind: '$items' },
-            {
-                $group: {
-                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-                    totalQuantity: { $sum: '$items.quantity' },
-                    totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } },
-                    uniqueProducts: { $addToSet: '$items.product' }
-                }
-            },
-            {
-                $project: {
-                    date: '$_id',
-                    totalQuantity: 1,
-                    totalRevenue: 1,
-                    uniqueProductCount: { $size: '$uniqueProducts' }
-                }
-            },
-            { $sort: { date: 1 } }
-        ]);
+        // Total category revenue for percentage calculation
+        const totalCategoryRevenue = categoryRevenue.reduce((sum, cat) => sum + cat.totalRevenue, 0);
         
-        // Price analysis
-        const priceAnalysis = await Product.aggregate([
-            { $match: productFilter },
-            {
-                $group: {
-                    _id: '$category',
-                    minPrice: { $min: '$price' },
-                    maxPrice: { $max: '$price' },
-                    avgPrice: { $avg: '$price' },
-                    productCount: { $sum: 1 }
-                }
-            },
-            { $sort: { avgPrice: -1 } }
-        ]);
+        // Add percentage to each category
+        categoryRevenue.forEach(cat => {
+            cat.percentage = totalCategoryRevenue > 0 ? (cat.totalRevenue / totalCategoryRevenue) * 100 : 0;
+        });
         
-        // Recently added products
-        const recentProducts = await Product.find(productFilter)
-            .sort({ createdAt: -1 })
-            .limit(10);
+        // Add percentage to top5Products
+        top5Products.forEach(product => {
+            product.percentage = totalQuantityTop5 > 0 ? (product.totalQuantity / totalQuantityTop5) * 100 : 0;
+        });
         
-        // Seasonal analysis (if applicable)
-        const seasonalAnalysis = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
+        // Removed unnecessary aggregations for better performance
+        // (categoryPerformance, lowStockProducts, productTrends, priceAnalysis, recentProducts, seasonalAnalysis)
+        
+        // Debug logs
+        console.log('📦 Product Report - Date range:', {
+            startDate: reportStartDate.toISOString(),
+            endDate: reportEndDate.toISOString()
+        });
+        console.log('📦 Product stats result:', productStats[0]);
+        console.log('📦 Best selling products count:', bestSellingProducts.length);
+        console.log('📦 Best selling products sample:', bestSellingProducts.slice(0, 2));
+        
+        // Debug: Let's check some actual orders to see what's happening
+        const debugOrders = await Order.find({
+            createdAt: { $gte: reportStartDate, $lte: reportEndDate },
+            status: { $ne: 'cancelled' }
+        }).populate('items.product').limit(3);
+        
+        console.log('🔍 DEBUG: Sample orders for analysis:');
+        debugOrders.forEach((order, index) => {
+            console.log(`Order ${index + 1}:`);
+            console.log(`  - Total Price: ${order.totalPrice}`);
+            console.log(`  - Original Price: ${order.originalPrice || 'N/A'}`);
+            console.log(`  - Voucher: ${JSON.stringify(order.voucher) || 'N/A'}`);
+            console.log(`  - Items:`);
+            order.items.forEach(item => {
+                console.log(`    * ${item.product?.name} (${item.size}) x${item.quantity}`);
+                console.log(`      Category: ${item.product?.category}`);
+                if (item.product?.category === 'Topping') {
+                    console.log(`      Price: ${item.product?.price}`);
+                } else {
+                    const sizePrice = item.product?.sizes?.find(s => s.size === item.size)?.price;
+                    console.log(`      Size Price: ${sizePrice}`);
                 }
-            },
-            { $unwind: '$items' },
-            {
-                $lookup: {
-                    from: 'products',
-                    localField: 'items.product',
-                    foreignField: '_id',
-                    as: 'product'
-                }
-            },
-            { $unwind: '$product' },
-            {
-                $group: {
-                    _id: {
-                        month: { $month: '$createdAt' },
-                        category: '$product.category'
-                    },
-                    totalQuantity: { $sum: '$items.quantity' },
-                    totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
-                }
-            },
-            { $sort: { '_id.month': 1, totalRevenue: -1 } }
-        ]);
+                console.log(`      Item Price Field: ${item.price || 'MISSING'}`);
+            });
+            console.log('');
+        });
+        
+        // Let's specifically check the Trà Tắc Mật Ong order
+        const traTacOrder = await Order.findOne({
+            'items.product': '68919fb908260a9c2fbe3928', // Trà Tắc Mật Ong ID from log
+            createdAt: { $gte: reportStartDate, $lte: reportEndDate }
+        }).populate('items.product');
+        
+        if (traTacOrder) {
+            console.log('🔍 SPECIFIC DEBUG - Trà Tắc Mật Ong Order:');
+            console.log(`  - Order ID: ${traTacOrder._id}`);
+            console.log(`  - Total Price: ${traTacOrder.totalPrice}`);
+            console.log(`  - Original Price: ${traTacOrder.originalPrice || 'N/A'}`);
+            console.log(`  - Voucher Applied: ${JSON.stringify(traTacOrder.voucher) || 'None'}`);
+            const traTacItem = traTacOrder.items.find(item => item.product.name === 'Trà Tắc Mật Ong');
+            if (traTacItem) {
+                console.log(`  - Product Size: ${traTacItem.size}`);
+                const expectedPrice = traTacItem.product.sizes.find(s => s.size === traTacItem.size)?.price;
+                console.log(`  - Expected Price for ${traTacItem.size}: ${expectedPrice}`);
+                console.log(`  - Quantity: ${traTacItem.quantity}`);
+                console.log(`  - Expected Total: ${expectedPrice * traTacItem.quantity}`);
+            }
+        }
+        console.log('📦 Category filter:', category);
+        console.log('📦 Category revenue data:', categoryRevenue);
+        console.log('📦 Top 5 products data:', top5Products);
         
         const reportData = {
             dateRange: {
                 startDate: reportStartDate,
                 endDate: reportEndDate
             },
-            statistics: productStats[0] || { 
-                totalProducts: 0, 
-                availableProducts: 0, 
-                unavailableProducts: 0, 
-                avgPrice: 0 
+            statistics: productStats[0] || {
+                totalProductsSold: 0,
+                totalRevenue: 0,
+                uniqueProductCount: 0,
+                totalOrders: 0,
+                avgRevenuePerOrder: 0
             },
             bestSellingProducts,
-            categoryPerformance,
-            lowStockProducts,
-            productTrends,
-            priceAnalysis,
-            recentProducts,
-            seasonalAnalysis
+            categoryRevenue,
+            top5Products,
+            maxQuantity,
+            totalQuantityTop5,
+            totalCategoryRevenue
         };
         
         // Export functionality
@@ -2933,9 +3324,9 @@ router.get('/reports/products', hasPermission('view_reports'), async (req, res) 
         
         if (exportFormat === 'csv') {
             // Generate CSV for best selling products
-            let csvContent = 'Product Name,Category,Total Sold,Total Revenue,Order Count,Avg Price\n';
+            let csvContent = 'Product Name,Category,Quantity Sold,Revenue,Order Count,Average Price\n';
             bestSellingProducts.forEach(product => {
-                csvContent += `"${product.productName}","${product.productCategory}",${product.totalQuantity},${product.totalRevenue},${product.orderCount},${product.avgPrice.toFixed(2)}\n`;
+                csvContent += `"${product.productName}","${product.productCategory}",${product.totalQuantity},${product.totalRevenue},${product.orderCount},${product.avgPrice}\n`;
             });
             
             res.setHeader('Content-Type', 'text/csv');
@@ -2945,346 +3336,312 @@ router.get('/reports/products', hasPermission('view_reports'), async (req, res) 
         
         // Audit log for report generation
         await logAuditAction(
-            req,
-            'data_export',
-            'System',
-            null,
-            {
-                reportType: 'product_report',
-                dateRange: `${reportStartDate.toISOString().split('T')[0]} to ${reportEndDate.toISOString().split('T')[0]}`,
-                exportFormat: exportFormat || 'view',
-                recordCount: reportData.statistics.totalProducts,
-                filters: { category, status }
-            }
+            req.user._id,
+            'REPORT_GENERATED',
+            'Product Report',
+            `Generated product report for ${reportStartDate.toISOString().split('T')[0]} to ${reportEndDate.toISOString().split('T')[0]}`,
+            req.ip
         );
+        
+        // Apply category filter to both statistics and bestSellingProducts if specified
+        let filteredBestSellingProducts = reportData.bestSellingProducts;
+        let filteredStatistics = reportData.statistics;
+        
+        if (category) {
+            // Filter best selling products by category
+            filteredBestSellingProducts = reportData.bestSellingProducts.filter(
+                product => product.productCategory === category
+            );
+            
+            // Recalculate statistics based on filtered products
+            if (filteredBestSellingProducts.length > 0) {
+                filteredStatistics = {
+                    totalProductsSold: filteredBestSellingProducts.reduce((sum, p) => sum + p.totalQuantity, 0),
+                    totalRevenue: filteredBestSellingProducts.reduce((sum, p) => sum + p.totalRevenue, 0),
+                    uniqueProductCount: filteredBestSellingProducts.length,
+                    totalOrders: filteredBestSellingProducts.reduce((sum, p) => sum + p.orderCount, 0),
+                    avgRevenuePerOrder: 0 // Will calculate below
+                };
+                // Calculate average revenue per order
+                filteredStatistics.avgRevenuePerOrder = filteredStatistics.totalOrders > 0 
+                    ? filteredStatistics.totalRevenue / filteredStatistics.totalOrders 
+                    : 0;
+            } else {
+                // No products in this category
+                filteredStatistics = {
+                    totalProductsSold: 0,
+                    totalRevenue: 0,
+                    uniqueProductCount: 0,
+                    totalOrders: 0,
+                    avgRevenuePerOrder: 0
+                };
+            }
+        }
         
         // Get all categories for filter
         const allCategories = await Product.distinct('category');
         
         res.render('admin/reports/products', {
             ...reportData,
+            statistics: filteredStatistics,
+            bestSellingProducts: filteredBestSellingProducts,
             allCategories,
             filters: req.query,
-            title: 'Báo cáo Sản phẩm'
+            title: 'Báo cáo sản phẩm'
         });
         
     } catch (error) {
-        console.error('Error generating product report:', error);
+        console.error('Product report error:', error);
         req.flash('error_msg', 'Có lỗi khi tạo báo cáo sản phẩm');
         res.redirect('/admin');
     }
 });
 
-// Sales Report (Báo cáo doanh số)
+// Sales Report (Báo cáo bán hàng)
 router.get('/reports/sales', hasPermission('view_reports'), async (req, res) => {
     try {
         const { startDate, endDate, exportFormat, period } = req.query;
-        
-        // Default date range (last 30 days)
+        const vietnamNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+
         const defaultEndDate = new Date();
         const defaultStartDate = new Date();
-        defaultStartDate.setDate(defaultStartDate.getDate() - 30);
-        
+        defaultStartDate.setDate(defaultStartDate.getDate() - 14);
+
         const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
         const reportEndDate = endDate ? new Date(endDate + 'T23:59:59') : defaultEndDate;
-        
-        // Sales overview statistics
-        const salesOverview = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate }
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalOrders: { $sum: 1 },
-                    completedOrders: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-                    cancelledOrders: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
-                    totalRevenue: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$totalPrice', 0] } },
-                    avgOrderValue: { $avg: { $cond: [{ $eq: ['$status', 'completed'] }, '$totalPrice', null] } },
-                    totalItems: { $sum: { $size: '$items' } }
-                }
-            }
-        ]);
-        
-        // Daily sales trends
-        const dailySales = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
-            {
-                $group: {
-                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-                    orderCount: { $sum: 1 },
-                    revenue: { $sum: '$totalPrice' },
-                    avgOrderValue: { $avg: '$totalPrice' }
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
-        
-        // Monthly comparison (current vs previous period)
-        const previousPeriodStart = new Date(reportStartDate);
-        const previousPeriodEnd = new Date(reportEndDate);
-        const periodDiff = reportEndDate - reportStartDate;
-        previousPeriodStart.setTime(previousPeriodStart.getTime() - periodDiff);
-        previousPeriodEnd.setTime(previousPeriodEnd.getTime() - periodDiff);
-        
-        const previousPeriodSales = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: previousPeriodStart, $lte: previousPeriodEnd },
-                    status: 'completed'
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalOrders: { $sum: 1 },
-                    totalRevenue: { $sum: '$totalPrice' }
-                }
-            }
-        ]);
-        
-        // Hourly sales pattern
-        const hourlySales = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
-            {
-                $group: {
-                    _id: { $hour: '$createdAt' },
-                    orderCount: { $sum: 1 },
-                    revenue: { $sum: '$totalPrice' }
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
-        
-        // Weekly sales pattern
-        const weeklySales = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
-            {
-                $group: {
-                    _id: { $dayOfWeek: '$createdAt' },
-                    orderCount: { $sum: 1 },
-                    revenue: { $sum: '$totalPrice' }
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
-        
-        // Top performing days
-        const topDays = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
-            {
-                $group: {
-                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-                    orderCount: { $sum: 1 },
-                    revenue: { $sum: '$totalPrice' }
-                }
-            },
-            { $sort: { revenue: -1 } },
-            { $limit: 10 }
-        ]);
-        
-        // Sales by payment method
-        const salesByPaymentMethod = await Payment.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
-            {
-                $group: {
-                    _id: '$paymentMethod',
-                    orderCount: { $sum: 1 },
-                    totalAmount: { $sum: '$amount' }
-                }
-            },
-            { $sort: { totalAmount: -1 } }
-        ]);
-        
-        // Customer acquisition and retention
-        const customerAnalysis = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
-            {
-                $group: {
-                    _id: '$user',
-                    orderCount: { $sum: 1 },
-                    totalSpent: { $sum: '$totalPrice' },
-                    firstOrder: { $min: '$createdAt' },
-                    lastOrder: { $max: '$createdAt' }
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalCustomers: { $sum: 1 },
-                    newCustomers: {
-                        $sum: {
+
+        const match = { createdAt: { $gte: reportStartDate, $lte: reportEndDate }, status: 'completed' };
+
+        const [overview, dailySales, revenueByCategory, toppingRevenue, hourlySales, weeklySales, topDays, customerAnalysis, salesByPaymentMethod] = await Promise.all([
+            // 1. Overview
+            Order.aggregate([
+                { $match: match },
+                { $group: { _id: null, totalOrders: { $sum: 1 }, totalRevenue: { $sum: '$totalPrice' }, completedOrders: { $sum: 1 } } },
+                { $project: { _id: 0, totalOrders: 1, totalRevenue: 1, completedOrders: 1, avgOrderValue: { $cond: [{ $gt: ['$totalOrders', 0] }, { $divide: ['$totalRevenue', '$totalOrders'] }, 0] } } }
+            ]),
+            // 2. Daily Sales
+            Order.aggregate([
+                { $match: match },
+                { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'Asia/Ho_Chi_Minh' } }, orderCount: { $sum: 1 }, revenue: { $sum: '$totalPrice' } } },
+                { $sort: { _id: 1 } }
+            ]),
+            // 3. Revenue by Category (main products only)
+            Order.aggregate([
+                { $match: match },
+                { $unwind: '$items' },
+                { $lookup: { from: 'products', localField: 'items.product', foreignField: '_id', as: 'productInfo' } },
+                { $unwind: '$productInfo' },
+                {
+                    $addFields: {
+                        itemPrice: {
                             $cond: [
-                                { $gte: ['$firstOrder', reportStartDate] },
-                                1,
-                                0
+                                // If product category is 'Topping', use direct price
+                                { $eq: ['$productInfo.category', 'Topping'] },
+                                { $ifNull: ['$productInfo.price', 0] },
+                                // Otherwise, use size-based pricing
+                                {
+                                    $let: {
+                                        vars: {
+                                            sizeObj: {
+                                                $arrayElemAt: [
+                                                    {
+                                                        $filter: {
+                                                            input: '$productInfo.sizes',
+                                                            cond: { $eq: ['$$this.size', '$items.size'] }
+                                                        }
+                                                    },
+                                                    0
+                                                ]
+                                            }
+                                        },
+                                        in: {
+                                            $cond: [
+                                                { $ne: ['$$sizeObj', null] },
+                                                '$$sizeObj.price',
+                                                { $ifNull: ['$productInfo.price', 0] }
+                                            ]
+                                        }
+                                    }
+                                }
                             ]
                         }
-                    },
-                    returningCustomers: {
-                        $sum: {
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$productInfo.category',
+                        revenue: { $sum: { $multiply: ['$itemPrice', '$items.quantity'] } },
+                        quantity: { $sum: '$items.quantity' },
+                        orders: { $addToSet: '$_id' }
+                    }
+                },
+                { $addFields: { orders: { $size: '$orders' } } },
+                { $sort: { revenue: -1 } }
+            ]),
+            // 4. Topping Revenue (calculated from items that have toppings)
+            Order.aggregate([
+                { $match: match },
+                { $unwind: '$items' },
+                { $match: { 'items.toppings': { $exists: true, $ne: [] } } }, // Only items with toppings
+                { $unwind: '$items.toppings' },
+                { $lookup: { from: 'products', localField: 'items.toppings', foreignField: '_id', as: 'toppingInfo' } },
+                { $unwind: '$toppingInfo' },
+                {
+                    $group: {
+                        _id: '$toppingInfo.category',
+                        revenue: { $sum: { $multiply: [{ $ifNull: ['$toppingInfo.price', 0] }, '$items.quantity'] } },
+                        quantity: { $sum: '$items.quantity' },
+                        orders: { $addToSet: '$_id' }
+                    }
+                },
+                { $addFields: { orders: { $size: '$orders' } } },
+                { $sort: { revenue: -1 } }
+            ]),
+            // 5. Hourly Sales (Today)
+            Order.aggregate([
+                { $match: { 
+                    createdAt: { 
+                        $gte: new Date(new Date().setHours(0, 0, 0, 0)), 
+                        $lt: new Date(new Date().setHours(23, 59, 59, 999)) 
+                    }, 
+                    status: 'completed' 
+                } },
+                { $group: { _id: { $hour: { date: '$createdAt', timezone: 'Asia/Ho_Chi_Minh' } }, orders: { $sum: 1 } } },
+                { $sort: { _id: 1 } }
+            ]),
+            // 6. Weekly Sales (This week - Monday to Sunday)
+            Order.aggregate([
+                { $match: { 
+                    createdAt: { 
+                        $gte: (() => {
+                            const today = new Date();
+                            const monday = new Date(today);
+                            const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+                            const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // If Sunday, go back 6 days to Monday
+                            monday.setDate(today.getDate() - daysToSubtract);
+                            monday.setHours(0, 0, 0, 0);
+                            return monday;
+                        })()
+                    }, 
+                    status: 'completed' 
+                } },
+                { 
+                    $addFields: {
+                        // Convert Sunday (1) to 7, keep others as is (Monday=2, Tuesday=3, etc.)
+                        adjustedDayOfWeek: {
                             $cond: [
-                                { $gt: ['$orderCount', 1] },
-                                1,
-                                0
+                                { $eq: [{ $dayOfWeek: { date: '$createdAt', timezone: 'Asia/Ho_Chi_Minh' } }, 1] },
+                                7, // Sunday becomes 7
+                                { $dayOfWeek: { date: '$createdAt', timezone: 'Asia/Ho_Chi_Minh' } }
                             ]
                         }
-                    },
-                    avgCustomerValue: { $avg: '$totalSpent' }
-                }
-            }
+                    }
+                },
+                { $group: { _id: '$adjustedDayOfWeek', orders: { $sum: 1 } } },
+                { $sort: { _id: 1 } } // Now Monday=2 comes first, Sunday=7 comes last
+            ]),
+            // 7. Top Days
+            Order.aggregate([
+                { $match: match },
+                { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'Asia/Ho_Chi_Minh' } }, orders: { $sum: 1 }, revenue: { $sum: '$totalPrice' } } },
+                { $sort: { revenue: -1 } },
+                { $limit: 10 }
+            ]),
+            // 8. Customer Analysis
+            Order.aggregate([
+                { $match: match },
+                { $group: { _id: '$user', totalSpent: { $sum: '$totalPrice' }, orderCount: { $sum: 1 } } },
+                { $group: { _id: null, totalCustomers: { $sum: 1 }, newCustomers: { $sum: { $cond: [{ $eq: ['$orderCount', 1] }, 1, 0] } } } },
+                { $project: { _id: 0, totalCustomers: 1, newCustomers: 1, returningCustomers: { $subtract: ['$totalCustomers', '$newCustomers'] } } }
+            ]),
+            // 9. Sales by Payment Method
+            Order.aggregate([
+                { $match: match },
+                { $group: { _id: '$paymentMethod', orders: { $sum: 1 }, revenue: { $sum: '$totalPrice' } } }
+            ])
         ]);
+
+        // Debug logs
+        console.log('📊 Main products revenue:', revenueByCategory);
+        console.log('📊 Topping revenue:', toppingRevenue);
         
-        // Revenue breakdown by category - fixed logic
-        // First get total items count per order to calculate proportional revenue
-        const revenueByCategory = await Order.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: reportStartDate, $lte: reportEndDate },
-                    status: 'completed'
-                }
-            },
-            {
-                $addFields: {
-                    totalItems: { $size: '$items' }
-                }
-            },
-            { $unwind: '$items' },
-            {
-                $lookup: {
-                    from: 'products',
-                    localField: 'items.product',
-                    foreignField: '_id',
-                    as: 'product'
-                }
-            },
-            { $unwind: '$product' },
-            {
-                $group: {
-                    _id: '$product.category',
-                    revenue: { 
-                        $sum: { 
-                            $divide: ['$totalPrice', '$totalItems'] 
-                        } 
-                    }, // Phân bổ doanh thu theo tỷ lệ items
-                    quantity: { $sum: '$items.quantity' },
-                    orderCount: { $sum: 1 }
-                }
-            },
-            { $sort: { revenue: -1 } }
-        ]);
+        // Merge main products and toppings revenue
+        const mergedRevenueByCategory = [...revenueByCategory];
         
-        const reportData = {
-            dateRange: {
-                startDate: reportStartDate,
-                endDate: reportEndDate
-            },
-            overview: salesOverview[0] || {
-                totalOrders: 0,
-                completedOrders: 0,
-                cancelledOrders: 0,
-                totalRevenue: 0,
-                avgOrderValue: 0,
-                totalItems: 0
-            },
-            previousPeriod: previousPeriodSales[0] || { totalOrders: 0, totalRevenue: 0 },
-            dailySales,
-            hourlySales,
-            weeklySales,
-            topDays,
-            salesByPaymentMethod,
-            customerAnalysis: customerAnalysis[0] || {
-                totalCustomers: 0,
-                newCustomers: 0,
-                returningCustomers: 0,
-                avgCustomerValue: 0
-            },
-            revenueByCategory
-        };
-        
-        // Calculate growth rates
-        if (reportData.previousPeriod.totalRevenue > 0) {
-            reportData.revenueGrowth = ((reportData.overview.totalRevenue - reportData.previousPeriod.totalRevenue) / reportData.previousPeriod.totalRevenue * 100).toFixed(2);
-            reportData.orderGrowth = ((reportData.overview.completedOrders - reportData.previousPeriod.totalOrders) / reportData.previousPeriod.totalOrders * 100).toFixed(2);
-        } else {
-            reportData.revenueGrowth = 0;
-            reportData.orderGrowth = 0;
-        }
-        
-        // Export functionality
-        if (exportFormat === 'json') {
-            res.setHeader('Content-Type', 'application/json');
-            res.setHeader('Content-Disposition', `attachment; filename=sales-report-${reportStartDate.toISOString().split('T')[0]}-to-${reportEndDate.toISOString().split('T')[0]}.json`);
-            return res.json(reportData);
-        }
-        
-        if (exportFormat === 'csv') {
-            // Generate CSV for daily sales
-            let csvContent = 'Date,Order Count,Revenue,Avg Order Value\n';
-            dailySales.forEach(day => {
-                csvContent += `"${day._id}",${day.orderCount},${day.revenue},${day.avgOrderValue.toFixed(2)}\n`;
-            });
+        // If topping revenue is empty, calculate it manually from orders with toppings
+        if (toppingRevenue.length === 0) {
+            console.log('📊 Topping revenue is empty, calculating manually...');
             
-            res.setHeader('Content-Type', 'text/csv');
-            res.setHeader('Content-Disposition', `attachment; filename=daily-sales-${reportStartDate.toISOString().split('T')[0]}-to-${reportEndDate.toISOString().split('T')[0]}.csv`);
-            return res.send(csvContent);
+            // Get all orders with toppings and calculate topping revenue
+            const ordersWithToppings = await Order.aggregate([
+                { $match: match },
+                { $unwind: '$items' },
+                { $match: { 'items.toppings': { $exists: true, $ne: [] } } },
+                { $unwind: '$items.toppings' },
+                { $lookup: { from: 'products', localField: 'items.toppings', foreignField: '_id', as: 'toppingInfo' } },
+                { $unwind: '$toppingInfo' },
+                {
+                    $group: {
+                        _id: null,
+                        totalToppingRevenue: { $sum: { $multiply: [{ $ifNull: ['$toppingInfo.price', 0] }, '$items.quantity'] } },
+                        totalToppingQuantity: { $sum: '$items.quantity' },
+                        totalOrders: { $addToSet: '$_id' }
+                    }
+                },
+                { $addFields: { totalOrders: { $size: '$totalOrders' } } }
+            ]);
+            
+            console.log('📊 Manual topping calculation result:', ordersWithToppings);
+            
+            if (ordersWithToppings.length > 0 && ordersWithToppings[0].totalToppingRevenue > 0) {
+                mergedRevenueByCategory.push({
+                    _id: 'Topping',
+                    revenue: ordersWithToppings[0].totalToppingRevenue,
+                    quantity: ordersWithToppings[0].totalToppingQuantity,
+                    orders: ordersWithToppings[0].totalOrders
+                });
+            }
+        } else {
+            // Add topping revenue to existing categories or create new ones
+            toppingRevenue.forEach(toppingCat => {
+                console.log('📊 Processing topping category:', toppingCat);
+                const existingCat = mergedRevenueByCategory.find(cat => cat._id === toppingCat._id);
+                if (existingCat) {
+                    console.log('📊 Adding to existing category:', existingCat._id);
+                    existingCat.revenue += toppingCat.revenue;
+                    existingCat.quantity += toppingCat.quantity;
+                    existingCat.orders += toppingCat.orders;
+                } else {
+                    console.log('📊 Creating new category for topping:', toppingCat._id);
+                    mergedRevenueByCategory.push(toppingCat);
+                }
+            });
         }
         
-        // Audit log for report generation
-        await logAuditAction(
-            req,
-            'data_export',
-            'System',
-            null,
-            {
-                reportType: 'sales_report',
-                dateRange: `${reportStartDate.toISOString().split('T')[0]} to ${reportEndDate.toISOString().split('T')[0]}`,
-                exportFormat: exportFormat || 'view',
-                recordCount: reportData.overview.totalOrders
-            }
-        );
+        // Sort by revenue descending
+        mergedRevenueByCategory.sort((a, b) => b.revenue - a.revenue);
         
+        const totalRevenue = (overview[0] && overview[0].totalRevenue) || 0;
+        mergedRevenueByCategory.forEach(cat => cat.totalRevenue = totalRevenue);
+
         res.render('admin/reports/sales', {
-            ...reportData,
+            title: 'Báo cáo bán hàng',
+            dateRange: { startDate: reportStartDate, endDate: reportEndDate },
+            today: vietnamNow,
             filters: req.query,
-            title: 'Báo cáo Doanh số'
+            overview: overview[0] || { totalOrders: 0, totalRevenue: 0, completedOrders: 0, avgOrderValue: 0 },
+            dailySales: dailySales || [],
+            revenueByCategory: mergedRevenueByCategory || [],
+            hourlySales: hourlySales || [],
+            weeklySales: weeklySales || [],
+            topDays: topDays || [],
+            customerAnalysis: customerAnalysis[0] || { totalCustomers: 0, newCustomers: 0, returningCustomers: 0 },
+            salesByPaymentMethod: salesByPaymentMethod || [],
         });
-        
+
     } catch (error) {
         console.error('Error generating sales report:', error);
-        req.flash('error_msg', 'Có lỗi khi tạo báo cáo doanh số');
+        req.flash('error_msg', 'Có lỗi khi tạo báo cáo bán hàng');
         res.redirect('/admin');
     }
 });
@@ -3294,402 +3651,16 @@ router.get('/reports/system-users', hasPermission('view_reports'), async (req, r
     try {
         const { startDate, endDate, exportFormat, userId, action } = req.query;
         
-        // Default date range (last 30 days)
-        const defaultEndDate = new Date();
-        const defaultStartDate = new Date();
-        defaultStartDate.setDate(defaultStartDate.getDate() - 30);
-        
-        const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
-        const reportEndDate = endDate ? new Date(endDate + 'T23:59:59') : defaultEndDate;
-        
-        // Build match criteria
-        const matchCriteria = {
-            createdAt: { $gte: reportStartDate, $lte: reportEndDate }
-        };
-        
-        if (userId) matchCriteria.user = new mongoose.Types.ObjectId(userId);
-        if (action) matchCriteria.action = action;
-        
-        // System user activity overview
-        const activityOverview = await AuditLog.aggregate([
-            { $match: matchCriteria },
-            {
-                $group: {
-                    _id: null,
-                    totalActivities: { $sum: 1 },
-                    uniqueUsers: { $addToSet: '$user' },
-                    successfulActions: { $sum: { $cond: [{ $eq: ['$status', 'success'] }, 1, 0] } },
-                    failedActions: { $sum: { $cond: [{ $eq: ['$status', 'error'] }, 1, 0] } },
-                    suspiciousActivities: { $sum: { $cond: [{ $eq: ['$suspicious', true] }, 1, 0] } }
-                }
-            },
-            {
-                $project: {
-                    totalActivities: 1,
-                    uniqueUsers: { $size: '$uniqueUsers' },
-                    successfulActions: 1,
-                    failedActions: 1,
-                    suspiciousActivities: 1,
-                    successRate: { $multiply: [{ $divide: ['$successfulActions', '$totalActivities'] }, 100] }
-                }
-            }
-        ]);
-        
-        // Daily activity trends
-        const dailyActivity = await AuditLog.aggregate([
-            { $match: matchCriteria },
-            {
-                $group: {
-                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-                    totalActivities: { $sum: 1 },
-                    uniqueUsers: { $addToSet: '$user' },
-                    successfulActions: { $sum: { $cond: [{ $eq: ['$status', 'success'] }, 1, 0] } },
-                    failedActions: { $sum: { $cond: [{ $eq: ['$status', 'error'] }, 1, 0] } },
-                    suspiciousActivities: { $sum: { $cond: [{ $eq: ['$suspicious', true] }, 1, 0] } }
-                }
-            },
-            {
-                $project: {
-                    totalActivities: 1,
-                    uniqueUsers: { $size: '$uniqueUsers' },
-                    successfulActions: 1,
-                    failedActions: 1,
-                    suspiciousActivities: 1
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
-        
-        // Most active users
-        const mostActiveUsers = await AuditLog.aggregate([
-            { $match: matchCriteria },
-            {
-                $group: {
-                    _id: '$user',
-                    totalActivities: { $sum: 1 },
-                    successfulActions: { $sum: { $cond: [{ $eq: ['$status', 'success'] }, 1, 0] } },
-                    failedActions: { $sum: { $cond: [{ $eq: ['$status', 'error'] }, 1, 0] } },
-                    suspiciousActivities: { $sum: { $cond: [{ $eq: ['$suspicious', true] }, 1, 0] } },
-                    lastActivity: { $max: '$createdAt' },
-                    actions: { $addToSet: '$action' }
-                }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: '_id',
-                    foreignField: '_id',
-                    as: 'userInfo'
-                }
-            },
-            { $unwind: '$userInfo' },
-            {
-                $project: {
-                    username: '$userInfo.username',
-                    email: '$userInfo.email',
-                    role: '$userInfo.role',
-                    totalActivities: 1,
-                    successfulActions: 1,
-                    failedActions: 1,
-                    suspiciousActivities: 1,
-                    lastActivity: 1,
-                    uniqueActions: { $size: '$actions' },
-                    successRate: { $multiply: [{ $divide: ['$successfulActions', '$totalActivities'] }, 100] }
-                }
-            },
-            { $sort: { totalActivities: -1 } },
-            { $limit: 20 }
-        ]);
-        
-        // Action breakdown
-        const actionBreakdown = await AuditLog.aggregate([
-            { $match: matchCriteria },
-            {
-                $group: {
-                    _id: '$action',
-                    count: { $sum: 1 },
-                    successCount: { $sum: { $cond: [{ $eq: ['$status', 'success'] }, 1, 0] } },
-                    errorCount: { $sum: { $cond: [{ $eq: ['$status', 'error'] }, 1, 0] } },
-                    uniqueUsers: { $addToSet: '$user' },
-                    suspiciousCount: { $sum: { $cond: [{ $eq: ['$suspicious', true] }, 1, 0] } }
-                }
-            },
-            {
-                $project: {
-                    action: '$_id',
-                    count: 1,
-                    successCount: 1,
-                    errorCount: 1,
-                    uniqueUsers: { $size: '$uniqueUsers' },
-                    suspiciousCount: 1,
-                    successRate: { $multiply: [{ $divide: ['$successCount', '$count'] }, 100] }
-                }
-            },
-            { $sort: { count: -1 } }
-        ]);
-        
-        // Hourly activity pattern
-        const hourlyActivity = await AuditLog.aggregate([
-            { $match: matchCriteria },
-            {
-                $group: {
-                    _id: { $hour: '$createdAt' },
-                    count: { $sum: 1 },
-                    uniqueUsers: { $addToSet: '$user' }
-                }
-            },
-            {
-                $project: {
-                    hour: '$_id',
-                    count: 1,
-                    uniqueUsers: { $size: '$uniqueUsers' }
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
-        
-        // Resource access patterns
-        const resourceAccess = await AuditLog.aggregate([
-            { 
-                $match: {
-                    ...matchCriteria,
-                    resource: { $ne: null }
-                }
-            },
-            {
-                $group: {
-                    _id: '$resource',
-                    accessCount: { $sum: 1 },
-                    uniqueUsers: { $addToSet: '$user' },
-                    actions: { $addToSet: '$action' },
-                    lastAccess: { $max: '$createdAt' }
-                }
-            },
-            {
-                $project: {
-                    resource: '$_id',
-                    accessCount: 1,
-                    uniqueUsers: { $size: '$uniqueUsers' },
-                    uniqueActions: { $size: '$actions' },
-                    lastAccess: 1
-                }
-            },
-            { $sort: { accessCount: -1 } },
-            { $limit: 15 }
-        ]);
-        
-        // Failed login attempts
-        const failedLogins = await AuditLog.aggregate([
-            {
-                $match: {
-                    ...matchCriteria,
-                    action: 'login',
-                    status: 'error'
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        user: '$user',
-                        ip: '$details.ip'
-                    },
-                    attemptCount: { $sum: 1 },
-                    lastAttempt: { $max: '$createdAt' },
-                    userAgent: { $first: '$details.userAgent' }
-                }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: '_id.user',
-                    foreignField: '_id',
-                    as: 'userInfo'
-                }
-            },
-            {
-                $project: {
-                    username: { $ifNull: [{ $arrayElemAt: ['$userInfo.username', 0] }, 'Unknown'] },
-                    email: { $ifNull: [{ $arrayElemAt: ['$userInfo.email', 0] }, 'Unknown'] },
-                    ip: '$_id.ip',
-                    attemptCount: 1,
-                    lastAttempt: 1,
-                    userAgent: 1
-                }
-            },
-            { $sort: { attemptCount: -1, lastAttempt: -1 } },
-            { $limit: 10 }
-        ]);
-        
-        // Get all system users for filter
-        const allSystemUsers = await User.find({ role: { $in: ['admin', 'manager', 'staff'] } })
-            .select('username email role')
-            .sort({ username: 1 });
-        
-        const reportData = {
-            dateRange: {
-                startDate: reportStartDate,
-                endDate: reportEndDate
-            },
-            overview: activityOverview[0] || {
-                totalActivities: 0,
-                uniqueUsers: 0,
-                successfulActions: 0,
-                failedActions: 0,
-                suspiciousActivities: 0,
-                successRate: 0
-            },
-            dailyActivity,
-            mostActiveUsers,
-            actionBreakdown,
-            hourlyActivity,
-            resourceAccess,
-            failedLogins,
-            allSystemUsers
-        };
-        
-        // Export functionality
-        if (exportFormat === 'json') {
-            res.setHeader('Content-Type', 'application/json');
-            res.setHeader('Content-Disposition', `attachment; filename=system-users-report-${reportStartDate.toISOString().split('T')[0]}-to-${reportEndDate.toISOString().split('T')[0]}.json`);
-            return res.json(reportData);
-        }
-        
-        if (exportFormat === 'csv') {
-            // Generate CSV for user activities
-            let csvContent = 'Username,Email,Role,Total Activities,Successful,Failed,Suspicious,Success Rate,Last Activity\n';
-            mostActiveUsers.forEach(user => {
-                csvContent += `"${user.username}","${user.email}","${user.role}",${user.totalActivities},${user.successfulActions},${user.failedActions},${user.suspiciousActivities},${user.successRate.toFixed(2)}%,"${user.lastActivity}"\n`;
-            });
-            
-            res.setHeader('Content-Type', 'text/csv');
-            res.setHeader('Content-Disposition', `attachment; filename=system-users-activities-${reportStartDate.toISOString().split('T')[0]}-to-${reportEndDate.toISOString().split('T')[0]}.csv`);
-            return res.send(csvContent);
-        }
-        
-        // Audit log for report generation
-        await logAuditAction(
-            req,
-            'data_export',
-            'System',
-            null,
-            {
-                reportType: 'system_users_report',
-                dateRange: `${reportStartDate.toISOString().split('T')[0]} to ${reportEndDate.toISOString().split('T')[0]}`,
-                exportFormat: exportFormat || 'view',
-                recordCount: reportData.overview.totalActivities,
-                filters: { userId, action }
-            }
-        );
-        
+        // Simple system users report - just redirect to existing functionality for now
         res.render('admin/reports/system-users', {
-            ...reportData,
-            filters: req.query,
-            title: 'Báo cáo Hoạt động Người dùng Hệ thống'
+            title: 'Báo cáo Người dùng Hệ thống',
+            message: 'System users report functionality coming soon'
         });
         
     } catch (error) {
-        console.error('Error generating system users report:', error);
-        req.flash('error_msg', 'Có lỗi khi tạo báo cáo hoạt động người dùng hệ thống');
+        console.error('System users report error:', error);
+        req.flash('error_msg', 'Có lỗi khi tạo báo cáo người dùng hệ thống');
         res.redirect('/admin');
-    }
-});
-
-// ===== PAYMENT MANAGEMENT ROUTES =====
-
-// Cập nhật trạng thái thanh toán (hoàn tiền, đánh dấu thành công/thất bại)
-router.post('/payments/:id/status', isAdmin, async (req, res) => {
-    try {
-        const { status } = req.body;
-        const paymentId = req.params.id;
-        
-        console.log('💳 Cập nhật trạng thái payment:', paymentId, 'thành:', status);
-        
-        // Validate status
-        const validStatuses = ['pending', 'paid', 'failed', 'refunded'];
-        if (!validStatuses.includes(status)) {
-            req.flash('error_msg', 'Trạng thái thanh toán không hợp lệ');
-            return res.redirect('/admin/payments');
-        }
-        
-        // Tìm payment và populate order để kiểm tra trạng thái
-        const payment = await Payment.findById(paymentId).populate('order');
-        if (!payment) {
-            req.flash('error_msg', 'Không tìm thấy giao dịch thanh toán');
-            return res.redirect('/admin/payments');
-        }
-        
-        // Kiểm tra logic hoàn tiền: chỉ cho phép hoàn tiền với đơn hàng đã hủy
-        if (status === 'refunded') {
-            if (!payment.order || payment.order.status !== 'cancelled') {
-                req.flash('error_msg', 'Chỉ có thể hoàn tiền cho đơn hàng đã hủy');
-                return res.redirect('/admin/payments');
-            }
-        }
-        
-        // Cập nhật trạng thái
-        await Payment.findByIdAndUpdate(paymentId, {
-            status: status,
-            processedBy: req.user._id,
-            processedAt: new Date()
-        });
-        
-        // Cập nhật trạng thái đơn hàng tương ứng nếu cần
-        if (payment.order) {
-            if (status === 'paid') {
-                await Order.findByIdAndUpdate(payment.order, {
-                    paymentStatus: 'paid'
-                });
-            } else if (status === 'failed') {
-                // Khi đánh dấu payment failed, hủy luôn đơn hàng
-                await Order.findByIdAndUpdate(payment.order, {
-                    status: 'cancelled',
-                    paymentStatus: 'failed'
-                });
-            } else if (status === 'refunded') {
-                await Order.findByIdAndUpdate(payment.order, {
-                    paymentStatus: 'failed'
-                });
-            }
-        }
-        
-        // Audit log
-        await logAuditAction(
-            req.user._id,
-            'update_payment_status',
-            'Payment',
-            paymentId,
-            'success',
-            req.ip,
-            req.get('User-Agent'),
-            {
-                oldStatus: payment.status,
-                newStatus: status,
-                paymentAmount: payment.amount
-            }
-        );
-        
-        let message = '';
-        switch(status) {
-            case 'paid':
-                message = 'Đã đánh dấu giao dịch thành công';
-                break;
-            case 'failed':
-                message = 'Đã đánh dấu giao dịch thất bại';
-                break;
-            case 'refunded':
-                message = 'Đã hoàn tiền thành công';
-                break;
-            default:
-                message = 'Đã cập nhật trạng thái thanh toán';
-        }
-        
-        req.flash('success_msg', message);
-        res.redirect('/admin/payments');
-        
-    } catch (error) {
-        console.error('Lỗi khi cập nhật trạng thái payment:', error);
-        req.flash('error_msg', 'Có lỗi khi cập nhật trạng thái thanh toán');
-        res.redirect('/admin/payments');
     }
 });
 

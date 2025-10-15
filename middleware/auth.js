@@ -28,6 +28,14 @@ const isAuthenticated = (req, res, next) => {
     if (req.isAuthenticated()) {
         return next();
     }
+    
+    // Nếu là yêu cầu GET (tải trang), chuyển hướng đến trang đăng nhập
+    if (req.method === 'GET') {
+        req.flash('error_msg', 'Bạn cần đăng nhập để xem trang này.');
+        return res.redirect('/users/login');
+    }
+    
+    // Nếu là yêu cầu API (POST, PUT, DELETE), trả về JSON
     res.status(401).json({ message: 'Bạn cần đăng nhập để thực hiện hành động này' });
 };
 

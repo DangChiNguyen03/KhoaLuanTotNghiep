@@ -22,7 +22,7 @@
                                     <p><strong>Địa chỉ:</strong> {{#if user.address}}{{user.address}}{{else}}<em>Chưa cập nhật</em>{{/if}}</p>
                                     <p><strong>Ngày sinh:</strong> 
                                         {{#if user.birthday}}
-                                            {{formatDateInput user.birthday}} ({{calculateAge user.birthday}} tuổi)
+                                            {{formatDate user.birthday}} ({{calculateAge user.birthday}} tuổi)
                                         {{else}}
                                             <em>Chưa cập nhật</em>
                                         {{/if}}
@@ -54,7 +54,7 @@
                                     <label for="birthday" class="form-label">Ngày sinh</label>
                                     <input type="date" class="form-control" id="birthday" name="birthday" 
                                            value="{{#if user.birthday}}{{formatDateInput user.birthday}}{{/if}}"
-                                           max="{{formatDateInput 'today'}}">
+                                           max="{{getCurrentDate}}">
                                     <div class="form-text">Cập nhật ngày sinh để hiển thị tuổi chính xác</div>
                                 </div>
                                 
