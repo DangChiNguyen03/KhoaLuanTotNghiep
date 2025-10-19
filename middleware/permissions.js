@@ -55,24 +55,19 @@ const hasPermission = (requiredPermission) => {
                 ? user.permissions 
                 : DEFAULT_PERMISSIONS[user.role] || [];
 
-
-
             // Check if user has required permission
             if (!userPermissions.includes(requiredPermission)) {
                 req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
-                // Redirect to admin dashboard if user is admin/staff, otherwise to regular dashboard
-                if (['admin', 'manager', 'staff'].includes(user.role)) {
-                    return res.redirect('/admin/dashboard');
-                } else {
-                    return res.redirect('/dashboard');
-                }
+                // Always redirect to admin dashboard for admin routes
+                return res.redirect('/admin/dashboard');
             }
 
             next();
         } catch (error) {
             console.error('Permission check error:', error);
             req.flash('error_msg', 'Có lỗi khi kiểm tra quyền truy cập');
-            res.redirect('/dashboard');
+            // Always redirect to admin dashboard for admin routes
+            res.redirect('/admin/dashboard');
         }
     };
 };
@@ -103,19 +98,16 @@ const hasAnyPermission = (requiredPermissions) => {
 
             if (!hasAccess) {
                 req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
-                // Redirect to admin dashboard if user is admin/staff, otherwise to regular dashboard
-                if (['admin', 'manager', 'staff'].includes(user.role)) {
-                    return res.redirect('/admin/dashboard');
-                } else {
-                    return res.redirect('/dashboard');
-                }
+                // Always redirect to admin dashboard for admin routes
+                return res.redirect('/admin/dashboard');
             }
 
             next();
         } catch (error) {
             console.error('Permission check error:', error);
             req.flash('error_msg', 'Có lỗi khi kiểm tra quyền truy cập');
-            res.redirect('/dashboard');
+            // Always redirect to admin dashboard for admin routes
+            res.redirect('/admin/dashboard');
         }
     };
 };

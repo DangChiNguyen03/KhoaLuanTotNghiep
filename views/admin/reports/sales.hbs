@@ -297,7 +297,6 @@
                                     <th>Danh mục</th>
                                     <th>Doanh thu</th>
                                     <th>Số lượng bán</th>
-                                    <th>Số đơn hàng</th>
                                     <th>Giá TB/món</th>
                                     <th>% Tổng doanh thu</th>
                                 </tr>
@@ -308,7 +307,6 @@
                                     <td><strong>{{this._id}}</strong></td>
                                     <td><strong class="text-success">{{formatCurrency this.revenue}}</strong></td>
                                     <td><span class="badge bg-primary">{{this.quantity}}</span></td>
-                                    <td><span class="text-info">{{this.orders}}</span></td>
                                     <td><span class="text-muted">{{formatCurrency (divide this.revenue this.quantity)}}</span></td>
                                     <td>
                                         <div class="d-flex align-items-center">
@@ -349,7 +347,6 @@ const endDate = new Date('{{{dateRange.endDate}}}');
 // Calculate the number of days in the range
 const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
-console.log('📊 Date range:', startDate, 'to', endDate, '- Days:', daysDiff);
 
 let chartLabels = [];
 let chartRevenues = [];
@@ -357,7 +354,6 @@ let chartOrderCounts = [];
 
 if (daysDiff <= 20) {
     // Show daily data if <= 20 days
-    console.log('📊 Using daily view');
     
     // Create complete date range (including days with 0 revenue)
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -373,7 +369,6 @@ if (daysDiff <= 20) {
     }
 } else {
     // Group by weeks if > 20 days
-    console.log('📊 Using weekly view (too many days)');
     
     // Group data by week
     const weeklyData = {};
@@ -404,7 +399,6 @@ if (daysDiff <= 20) {
     });
 }
 
-console.log('📊 Chart data:', { labels: chartLabels, revenues: chartRevenues, orders: chartOrderCounts });
 
 const dailyCtx = document.getElementById('dailySalesChart').getContext('2d');
 new Chart(dailyCtx, {
@@ -512,14 +506,12 @@ new Chart(categoryCtx, {
 
 // Hourly Sales Chart
 const hourlyData = {{{json hourlySales}}};
-console.log('📊 Hourly data from backend:', hourlyData);
 const hourLabels = Array.from({length: 24}, (_, i) => i + 'h');
 const hourlyOrderCounts = hourLabels.map(hour => {
     const hourNum = parseInt(hour);
     const found = hourlyData.find(item => item._id === hourNum);
     return found ? found.orders : 0;
 });
-console.log('📊 Hourly order counts:', hourlyOrderCounts);
 
 const hourlyCtx = document.getElementById('hourlySalesChart').getContext('2d');
 new Chart(hourlyCtx, {
@@ -555,16 +547,16 @@ new Chart(hourlyCtx, {
 
 // Weekly Sales Chart
 const weeklyData = {{{json weeklySales}}};
-console.log('📊 Weekly data from backend:', weeklyData);
+
+// Always show all 7 days of the week
 const weekLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
-const weeklyOrderCounts = [2,3,4,5,6,7,7].map((day, index) => {
-    // Monday=2, Tuesday=3, Wednesday=4, Thursday=5, Friday=6, Saturday=7, Sunday=7
-    const dayId = index === 6 ? 7 : day; // Last element (index 6) is Sunday with _id: 7
+const weekIds = [2, 3, 4, 5, 6, 7, 1]; // Monday=2, Tuesday=3, ..., Saturday=7, Sunday=1
+
+const weeklyOrderCounts = weekIds.map((dayId, index) => {
     const found = weeklyData.find(item => item._id === dayId);
-    console.log(`📊 Day ${dayId} (${weekLabels[index]}): found =`, found);
     return found ? found.orders : 0;
 });
-console.log('📊 Weekly order counts:', weeklyOrderCounts);
+
 
 const weeklyCtx = document.getElementById('weeklySalesChart').getContext('2d');
 new Chart(weeklyCtx, {

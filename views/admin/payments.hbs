@@ -98,9 +98,6 @@
                             <select class="form-select" name="paymentMethod">
                                 <option value="">Tất cả phương thức</option>
                                 <option value="cash" {{#if (eq paymentMethod 'cash')}}selected{{/if}}>Tiền mặt</option>
-                                <option value="bank" {{#if (eq paymentMethod 'bank')}}selected{{/if}}>Chuyển khoản</option>
-                                <option value="momo" {{#if (eq paymentMethod 'momo')}}selected{{/if}}>MoMo</option>
-                                <option value="zalopay" {{#if (eq paymentMethod 'zalopay')}}selected{{/if}}>ZaloPay</option>
                                 <option value="vnpay" {{#if (eq paymentMethod 'vnpay')}}selected{{/if}}>VNPay</option>
                             </select>
                         </div>
@@ -145,7 +142,6 @@
                                     <th>Phương thức</th>
                                     <th>Trạng thái</th>
                                     <th>Ngày tạo</th>
-                                    <th>Người xử lý</th>
                                     <th>Thao tác</th>
                                 </tr>
                             </thead>
@@ -186,7 +182,7 @@
                                     <td>
                                         <span class="badge {{#if (eq this.paymentMethod 'cash')}}bg-success{{else if (eq this.paymentMethod 'bank')}}bg-info{{else}}bg-warning{{/if}}">
                                             {{#if (eq this.paymentMethod 'cash')}}Tiền mặt
-                                            {{else if (eq this.paymentMethod 'bank')}}Chuyển khoản
+                                            {{else if (eq this.paymentMethod 'bank')}}VNPay
                                             {{else if (eq this.paymentMethod 'momo')}}MoMo
                                             {{else if (eq this.paymentMethod 'zalopay')}}ZaloPay
                                             {{else if (eq this.paymentMethod 'vnpay')}}VNPay
@@ -207,13 +203,6 @@
                                     </td>
                                     <td>
                                         <small>{{formatDateTime this.createdAt}}</small>
-                                    </td>
-                                    <td>
-                                        {{#if this.processedBy}}
-                                        <small>{{this.processedBy.name}}</small>
-                                        {{else}}
-                                        <span class="text-muted">Chưa xử lý</span>
-                                        {{/if}}
                                     </td>
                                     <td>
                                         <div class="btn-group" role="group">

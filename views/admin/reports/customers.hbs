@@ -124,8 +124,8 @@
                             <small class="text-muted">{{formatDate dateRange.startDate}} - {{formatDate dateRange.endDate}}</small>
                         </div>
                         <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="registrationChart"></canvas>
+                            <div class="chart-container" style="height: 300px; position: relative;">
+                                <canvas id="registrationChart" style="height: 300px !important; max-height: 300px !important;"></canvas>
                             </div>
                         </div>
                     </div>
@@ -138,8 +138,8 @@
                             <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Phân bố độ tuổi</h5>
                         </div>
                         <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="demographicsChart"></canvas>
+                            <div class="chart-container" style="height: 280px; position: relative;">
+                                <canvas id="demographicsChart" style="height: 280px !important; max-height: 280px !important;"></canvas>
                             </div>
                         </div>
                     </div>
@@ -319,6 +319,8 @@ if (daysDiff <= 30) {
 }
 
 const registrationCanvas = document.getElementById('registrationChart');
+registrationCanvas.height = 300;
+registrationCanvas.style.height = '300px';
 const registrationCtx = registrationCanvas.getContext('2d');
 new Chart(registrationCtx, {
     type: 'bar',
@@ -336,6 +338,7 @@ new Chart(registrationCtx, {
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        aspectRatio: 2,
         plugins: {
             tooltip: {
                 callbacks: {
@@ -379,6 +382,7 @@ if (demographicsData.length === 0) {
     container.appendChild(empty);
 } else {
     demographicsCanvas.height = 280;
+    demographicsCanvas.style.height = '280px';
     demographicsCanvas.width = demographicsCanvas.parentElement.clientWidth;
     const demographicsCtx = demographicsCanvas.getContext('2d');
     new Chart(demographicsCtx, {
@@ -415,19 +419,45 @@ if (demographicsData.length === 0) {
 .chart-container {
     position: relative;
     width: 100%;
-    height: 300px;
-    max-height: 300px;
+    height: 300px !important;
+    max-height: 300px !important;
+    min-height: 300px !important;
     overflow: hidden;
 }
 
 .chart-container > canvas {
     width: 100% !important;
-    height: 100% !important;
+    height: 300px !important;
+    max-height: 300px !important;
     display: block;
+}
+
+#registrationChart {
+    height: 300px !important;
+    max-height: 300px !important;
+}
+
+#demographicsChart {
+    height: 280px !important;
+    max-height: 280px !important;
 }
 .card {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card-body {
+    padding: 1rem;
+    overflow: hidden;
+}
+
+.row.mb-4 .col-md-6 {
+    height: auto;
+}
+
+.row.mb-4 .card {
+    height: auto;
+    max-height: 400px;
 }
 
 .progress {

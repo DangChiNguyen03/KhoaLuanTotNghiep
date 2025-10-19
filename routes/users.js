@@ -17,39 +17,6 @@ router.get("/login", forwardAuthenticated, (req, res) => {
   res.render("login");
 });
 
-// Đăng nhập với Google
-router.get(
-  "/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
-);
-
-// Google callback
-router.get(
-  "/auth/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: "/users/login",
-    failureFlash: true,
-  }),
-  async (req, res) => {
-    try {
-      // Ghi log đăng nhập thành công (Google)
-      await new Promise((resolve, reject) => {
-        logSuccessfulLogin(req, res, (err) => (err ? reject(err) : resolve()));
-      });
-
-      // Audit trail
-      await auditLogin(req, true);
-
-      req.flash('success_msg', 'Đăng nhập thành công!');
-      res.redirect('/dashboard');
-    } catch (error) {
-      console.error('❌ Error in Google login process:', error);
-      // Dù gặp lỗi ghi log, vẫn cho vào hệ thống nhưng đảm bảo UX
-      req.flash('success_msg', 'Đăng nhập thành công!');
-      res.redirect('/dashboard');
-    }
-  }
-);
 
 // Login Handle
 const { loginRateLimiter } = require("../middleware/rateLimiter");
@@ -94,11 +61,13 @@ router.post("/login", loginRateLimiter, (req, res, next) => {
         await auditLogin(req, true);
         
         req.flash('success_msg', 'Đăng nhập thành công!');
-        return res.redirect("/dashboard");
+        // Always redirect to homepage after login
+        return res.redirect("/");
       } catch (error) {
         console.error('❌ Error in login process:', error);
         req.flash('success_msg', 'Đăng nhập thành công!');
-        return res.redirect("/dashboard");
+        // Always redirect to homepage even in error case
+        return res.redirect("/");
       }
     });
   })(req, res, next);

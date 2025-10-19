@@ -73,14 +73,13 @@ router.get("/", async (req, res) => {
     }
 
     const categories = await Product.distinct("category");
-    const toppings = await Product.find({ category: "Topping" }).select("name");
-    const toppingList = toppings.map((t) => t.name);
-
+    const toppings = await Product.find({ category: "Topping" }).select("name _id");
+    
     res.render("products", {
       user: req.user,
       products,
       categories,
-      toppings: toppingList, // Truyền danh sách topping vào view
+      toppings: toppings, // Truyền topping objects với _id và name
       currentCategory: req.query.category || "all",
       currentSort: req.query.sort || "newest",
       searchTerm: req.query.search || "",

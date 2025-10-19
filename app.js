@@ -5,7 +5,6 @@ const exphbs = require("express-handlebars");
 const mongoose = require("mongoose");
 const session = require("express-session");
 const passport = require("passport");
-require("./config/passport-google");
 const flash = require("connect-flash");
 const path = require("path");
 const logger = require("./middleware/logger");
@@ -18,6 +17,7 @@ const userRoutes = require("./routes/users");
 const chatbotRoutes = require("./routes/chatbot");
 const ordersRouter = require("./routes/orders");
 const profileRouter = require("./routes/profile");
+const paymentRoutes = require("./routes/payment");
 
 const app = express();
 
@@ -168,14 +168,28 @@ const hbs = exphbs.create({
     },
 
     // Sum topping prices consistently
-    sumToppingPrices: function (toppings) {
+    sumToppingPrices: function (toppings, size) {
       if (!Array.isArray(toppings)) return 0;
       return toppings.reduce((total, topping) => {
-        if (topping.category === 'Topping') {
-          return total + (topping.price || (topping.sizes && topping.sizes[0] ? topping.sizes[0].price : 0));
+        // For toppings, try to get size-specific price first, then fallback to direct price
+        let toppingPrice = 0;
+        if (size && topping.sizes && Array.isArray(topping.sizes)) {
+          const sizeObj = topping.sizes.find(s => s.size === size);
+          toppingPrice = sizeObj ? sizeObj.price : (topping.price || 8000);
+        } else {
+          toppingPrice = topping.price || 8000;
         }
-        return total + (topping.price || 0);
+        return total + toppingPrice;
       }, 0);
+    },
+
+    // Math Helpers for payment statistics
+    add: function (a, b) {
+      return (a || 0) + (b || 0);
+    },
+    percentage: function (part, total) {
+      if (!total || total === 0) return 0;
+      return Math.round(((part || 0) / total) * 100);
     },
   },
   runtimeOptions: {
@@ -233,12 +247,12 @@ app.use("/users", userRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/products", productRoutes);
 
-// Admin routes with authentication
-const { ensureAuthenticated } = require("./config/auth");
-app.use("/admin", ensureAuthenticated, adminRoutes);
+// Admin routes - authentication handled by individual routes
+app.use("/admin", adminRoutes);
 
 app.use("/cart", cartRoutes);
 app.use("/orders", ordersRouter);
+app.use("/payment", paymentRoutes);
 app.use("/", profileRouter);
 
 // Error handler

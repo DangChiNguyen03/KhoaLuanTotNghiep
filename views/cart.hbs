@@ -1,7 +1,7 @@
 <div class="container">
     <h1 class="mb-4">Giỏ hàng</h1>
 
-    {{#if cart.length}}
+    {{#if cartItems.length}}
     <div class="table-responsive mb-4">
         <table class="table">
             <thead>
@@ -15,7 +15,7 @@
                 </tr>
             </thead>
             <tbody>
-                {{#each cart}}
+                {{#each cartItems}}
                 <tr data-item-id="{{this._id}}">
                     <td>
                         <div class="d-flex align-items-center">
@@ -37,7 +37,7 @@
                                 <li class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <span class="fw-medium">{{this.name}}</span>
-                                        <span class="text-muted"> - {{formatCurrency (getPrice this)}}</span>
+                                        <span class="text-muted"> - {{#if this.price}}{{formatCurrency this.price}}{{else}}{{formatCurrency 8000}}{{/if}}</span>
                                     </div>
                                     <button class="btn btn-link text-danger p-0 ms-1 remove-topping" data-topping-id="{{this._id}}" style="font-size: 0.8em;">
                                         <i class="fas fa-times"></i>
@@ -83,7 +83,7 @@
                                 {{#each product.sizes}}
                                     {{#if (eq this.size ../size)}}
                                         {{#if ../toppingDetails}}
-                                            {{formatPrice (multiply (add this.price (sumToppingPrices ../toppingDetails)) ../quantity)}}
+                                            {{formatPrice (multiply (add this.price (sumToppingPrices ../toppingDetails ../size)) ../quantity)}}
                                         {{else}}
                                             {{formatPrice (multiply this.price ../quantity)}}
                                         {{/if}}
@@ -91,14 +91,14 @@
                                 {{/each}}
                             {{else}}
                                 {{#if toppingDetails}}
-                                    {{formatPrice (multiply (add product.price (sumToppingPrices toppingDetails)) quantity)}}
+                                    {{formatPrice (multiply (add product.price (sumToppingPrices toppingDetails size)) quantity)}}
                                 {{else}}
                                     {{formatPrice (multiply product.price quantity)}}
                                 {{/if}}
                             {{/if}}
                         {{else}}
                             {{#if toppingDetails}}
-                                {{formatPrice (multiply (add product.price (sumToppingPrices toppingDetails)) quantity)}}
+                                {{formatPrice (multiply (add product.price (sumToppingPrices toppingDetails size)) quantity)}}
                             {{else}}
                                 {{formatPrice (multiply product.price quantity)}}
                             {{/if}}

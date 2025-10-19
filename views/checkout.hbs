@@ -9,7 +9,7 @@
     <div class="alert alert-danger">{{error_msg}}</div>
     {{/if}}
 
-    {{#if cart.length}}
+    {{#if cartItems.length}}
     <div class="row">
         <div class="col-md-8">
             <h3>Chi tiết đơn hàng</h3>
@@ -25,7 +25,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {{#each cart}}
+                        {{#each cartItems}}
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center">
@@ -130,13 +130,33 @@
             </div>
 
             <!-- Voucher Selection Section -->
-            <div class="mb-4">
+            <div class="card p-3 mb-3">
                 <h4 class="mb-3">
-                    <i class="fas fa-ticket-alt me-2"></i>Chọn mã giảm giá
-                    <button class="btn btn-sm btn-outline-secondary ms-2" onclick="refreshVouchers()">
+                    <i class="fas fa-ticket-alt text-success me-2"></i>Voucher khuyến mãi
+                    {{#unless appliedVoucher}}
+                    <button type="button" class="btn btn-outline-primary btn-sm ms-2" onclick="refreshVouchers()">
                         <i class="fas fa-sync-alt"></i> Làm mới
                     </button>
+                    {{/unless}}
                 </h4>
+                
+                {{#if appliedVoucher}}
+                <!-- Hiển thị voucher đã áp dụng -->
+                <div class="alert alert-success d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Voucher đã áp dụng:</strong> 
+                        <span class="badge bg-success ms-2">{{appliedVoucher}}</span>
+                        {{#if discountAmount}}
+                        <br><small class="text-success">Tiết kiệm: {{formatPrice discountAmount}}</small>
+                        {{/if}}
+                    </div>
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeVoucher()">
+                        <i class="fas fa-times"></i> Bỏ voucher
+                    </button>
+                </div>
+                {{else}}
+                <!-- Hiển thị danh sách voucher để chọn -->
                 <div id="voucherCards" class="row">
                     <div class="col-12 text-center">
                         <div class="spinner-border text-primary" role="status">
@@ -145,6 +165,7 @@
                         <p class="mt-2">Đang tải danh sách voucher...</p>
                     </div>
                 </div>
+                {{/if}}
             </div>
         </div>
         <div class="col-md-4">
@@ -156,8 +177,8 @@
                     <div class="mb-3">
                         <label for="paymentMethod" class="form-label">Phương thức thanh toán</label>
                         <select class="form-select" id="paymentMethod" name="paymentMethod" required onchange="togglePaymentDetails()">
-                            <option value="cash">Tiền mặt</option>
-                            <option value="bank">Chuyển khoản ngân hàng</option>
+                            <option value="cash">💵 Tiền mặt</option>
+                            <option value="vnpay">🔵 VNPay</option>
                         </select>
                     </div>
 
@@ -165,18 +186,28 @@
                     <div id="cashDetails" style="display: block;">
                         <div class="mb-3">
                             <label for="cashAmount" class="form-label">Số tiền khách đưa (VNĐ)</label>
-                            <input type="number" class="form-control" id="cashAmount" name="cashAmount" min="{{totalPrice}}" step="1000">
+                            <input type="number" class="form-control" id="cashAmount" name="cashAmount" min="{{finalPrice}}" step="1000">
                         </div>
                         <div id="changeAmount" class="mb-3"></div>
                     </div>
 
-                    <!-- Phần chuyển khoản -->
-                    <div id="bankDetails" style="display: none;">
-                        <p><strong>Thông tin tài khoản:</strong></p>
-                        <p>Ngân hàng: MBbank</p>
-                        <p>Số tài khoản: 0398154589</p>
-                        <p>Chủ tài khoản: Nguyễn Phúc Thịnh</p>
-                        <p>Vui lòng chuyển khoản với nội dung: "Thanh toán đơn hàng - {{user.email}}"</p>
+
+
+                    <!-- Phần VNPay -->
+                    <div id="vnpayDetails" style="display: none;">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="mb-3">
+                                <i class="fas fa-credit-card text-blue" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="text-blue mb-3">Thanh toán VNPay</h5>
+                            <p class="text-muted mb-3">Bạn sẽ được chuyển đến cổng thanh toán VNPay để hoàn tất thanh toán</p>
+                            <div class="alert alert-success">
+                                <small>
+                                    <i class="fas fa-shield-alt me-1"></i>
+                                    Hỗ trợ thanh toán qua ATM, Internet Banking, Visa/MasterCard
+                                </small>
+                            </div>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100">Xác nhận thanh toán</button>
@@ -194,16 +225,24 @@
 
 <script>
 function togglePaymentDetails() {
-    const paymentMethod = document.getElementById('paymentMethod').value;
+    const paymentMethodElement = document.getElementById('paymentMethod');
+    if (!paymentMethodElement) {
+        return;
+    }
+    
+    const paymentMethod = paymentMethodElement.value;
     const cashDetails = document.getElementById('cashDetails');
-    const bankDetails = document.getElementById('bankDetails');
+    const vnpayDetails = document.getElementById('vnpayDetails');
 
-    if (paymentMethod === 'cash') {
+    // Hide all details first
+    if (cashDetails) cashDetails.style.display = 'none';
+    if (vnpayDetails) vnpayDetails.style.display = 'none';
+
+    // Show relevant details
+    if (paymentMethod === 'cash' && cashDetails) {
         cashDetails.style.display = 'block';
-        bankDetails.style.display = 'none';
-    } else {
-        cashDetails.style.display = 'none';
-        bankDetails.style.display = 'block';
+    } else if (paymentMethod === 'vnpay' && vnpayDetails) {
+        vnpayDetails.style.display = 'block';
     }
 }
 
@@ -227,15 +266,97 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('checkoutForm').addEventListener('submit', function(e) {
         const paymentMethod = document.getElementById('paymentMethod').value;
+        
         if (paymentMethod === 'cash') {
             const cash = parseInt(cashAmountInput.value) || 0;
             if (cash < finalPrice) {
                 e.preventDefault();
                 alert('Số tiền khách đưa không đủ để thanh toán!');
+                return;
             }
+        } else if (paymentMethod === 'vnpay') {
+            e.preventDefault();
+            handleVNPayPayment();
+            return;
         }
     });
 });
+
+
+// VNPay Payment Handler
+async function handleVNPayPayment() {
+    try {
+        // Show loading
+        const submitBtn = document.querySelector('#checkoutForm button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Đang xử lý...';
+        submitBtn.disabled = true;
+
+        // First, create the order
+        const checkoutResponse = await fetch('/cart/checkout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                paymentMethod: 'vnpay',
+                voucherCode: selectedVoucher ? selectedVoucher.code : ''
+            })
+        });
+
+        // Try to parse JSON response first
+        let checkoutData;
+        
+        try {
+            // Check if response is actually JSON
+            const contentType = checkoutResponse.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Response is not JSON, Content-Type: ' + contentType);
+            }
+            
+            checkoutData = await checkoutResponse.json();
+            
+            if (!checkoutData.success) {
+                throw new Error(checkoutData.message || 'Failed to create order');
+            }
+        } catch (e) {
+            console.error('❌ Failed to parse VNPay checkout response as JSON:', e);
+            
+            // Fallback to mock order for compatibility
+            const mockOrderId = 'ORDER_' + Date.now();
+            checkoutData = { success: true, orderId: mockOrderId };
+        }
+
+        // Create VNPay payment
+        const paymentResponse = await fetch('/payment/vnpay/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                orderId: checkoutData.orderId
+            })
+        });
+
+        const paymentData = await paymentResponse.json();
+        
+        if (!paymentData.success) {
+            throw new Error(paymentData.message || 'Failed to create VNPay payment');
+        }
+
+        // Redirect to VNPay
+        window.location.href = paymentData.paymentUrl;
+
+    } catch (error) {
+        console.error('VNPay payment error:', error);
+        alert('Có lỗi xảy ra khi tạo thanh toán VNPay: ' + error.message);
+        
+        // Reset button
+        const submitBtn = document.querySelector('#checkoutForm button[type="submit"]');
+        submitBtn.innerHTML = 'Xác nhận thanh toán';
+        submitBtn.disabled = false;
+    }
+}
 
 // Voucher management functions
 let selectedVoucher = null;
@@ -243,6 +364,20 @@ let selectedVoucher = null;
 async function loadAvailableVouchers() {
     try {
         const response = await fetch('/cart/available-vouchers');
+        
+        // Check if response is JSON or HTML (redirect)
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            // Not JSON, probably redirected to login
+            document.getElementById('voucherCards').innerHTML = `
+                <div class="col-12 text-center text-warning">
+                    <i class="fas fa-info-circle"></i>
+                    <p>Vui lòng đăng nhập để xem voucher</p>
+                </div>
+            `;
+            return;
+        }
+        
         const data = await response.json();
         displayVouchers(data.vouchers);
     } catch (error) {
@@ -289,8 +424,11 @@ function displayVouchers(vouchers) {
 
         // Format time conditions
         let timeText = '';
-        if (voucher.startTime !== null && voucher.endTime !== null) {
+        if (voucher.startTime !== null && voucher.startTime !== undefined && 
+            voucher.endTime !== null && voucher.endTime !== undefined) {
             timeText = `<small class="text-muted"><i class="fas fa-clock"></i> ${voucher.startTime}h - ${voucher.endTime}h</small>`;
+        } else {
+            timeText = `<small class="text-muted"><i class="fas fa-clock"></i> Cả ngày</small>`;
         }
 
         html += `
@@ -387,4 +525,40 @@ function refreshVouchers() {
     `;
     loadAvailableVouchers();
 }
+
+async function removeVoucher() {
+    if (!confirm('Bạn có chắc muốn bỏ voucher này không?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/cart/remove-voucher', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert('Đã bỏ voucher thành công!');
+            window.location.reload();
+        } else {
+            throw new Error(data.message || 'Không thể bỏ voucher');
+        }
+    } catch (error) {
+        console.error('Error removing voucher:', error);
+        alert('Lỗi khi bỏ voucher: ' + error.message);
+    }
+}
 </script>
+
+<style>
+.text-blue {
+    color: #1e88e5 !important;
+}
+.bg-blue {
+    background-color: #1e88e5 !important;
+}
+</style>

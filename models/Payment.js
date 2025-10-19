@@ -66,6 +66,36 @@ const PaymentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         default: null
+    },
+    
+    // Gateway-specific fields
+    gatewayTransactionId: {
+        type: String,
+        default: null
+    },
+    
+    gatewayOrderId: {
+        type: String,
+        default: null
+    },
+    
+    gatewayResponse: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null
+    },
+    
+    signature: {
+        type: String,
+        default: null
+    },
+    
+    // Payment gateway metadata
+    gatewayMetadata: {
+        resultCode: String,
+        message: String,
+        payType: String,
+        responseTime: String,
+        extraData: String
     }
     
 }, {

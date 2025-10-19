@@ -15,6 +15,81 @@
 
             {{> messages}}
 
+            <!-- Thống kê phương thức thanh toán -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="card-title mb-1">💰 Tiền mặt</h5>
+                                    <p class="card-text mb-0">Thanh toán khi nhận hàng</p>
+                                </div>
+                                <div class="text-end">
+                                    <h3 class="mb-0">{{paymentStats.cash.totalOrders}}</h3>
+                                    <small>đơn hàng</small>
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="d-flex justify-content-between">
+                                <span>Tổng doanh thu:</span>
+                                <strong>{{formatPrice paymentStats.cash.totalRevenue}}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="card-title mb-1">💳 VNPay</h5>
+                                    <p class="card-text mb-0">Thanh toán trực tuyến</p>
+                                </div>
+                                <div class="text-end">
+                                    <h3 class="mb-0">{{paymentStats.vnpay.totalOrders}}</h3>
+                                    <small>đơn hàng</small>
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="d-flex justify-content-between">
+                                <span>Tổng doanh thu:</span>
+                                <strong>{{formatPrice paymentStats.vnpay.totalRevenue}}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tổng kết -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-info">
+                        <div class="card-body">
+                            <h5 class="card-title text-info">📊 Tổng kết</h5>
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <h4 class="text-primary">{{add paymentStats.cash.totalOrders paymentStats.vnpay.totalOrders}}</h4>
+                                    <small class="text-muted">Tổng đơn hàng</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <h4 class="text-success">{{formatPrice (add paymentStats.cash.totalRevenue paymentStats.vnpay.totalRevenue)}}</h4>
+                                    <small class="text-muted">Tổng doanh thu</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <h4 class="text-warning">{{percentage paymentStats.cash.totalOrders (add paymentStats.cash.totalOrders paymentStats.vnpay.totalOrders)}}%</h4>
+                                    <small class="text-muted">Tỷ lệ tiền mặt</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <h4 class="text-info">{{percentage paymentStats.vnpay.totalOrders (add paymentStats.cash.totalOrders paymentStats.vnpay.totalOrders)}}%</h4>
+                                    <small class="text-muted">Tỷ lệ VNPay</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Nút thêm phương thức thanh toán -->
             <div class="mb-4">
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPaymentMethodModal">
@@ -52,8 +127,12 @@
                                 <tr>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            {{#if this.icon}}
-                                            <img src="{{this.icon}}" alt="{{this.name}}" class="me-2" style="width: 24px; height: 24px; object-fit: contain;">
+                                            {{#if (eq this.code 'cash')}}
+                                            <i class="fas fa-money-bill-wave text-success me-2"></i>
+                                            {{else if (eq this.code 'vnpay')}}
+                                            <i class="fas fa-credit-card text-primary me-2"></i>
+                                            {{else if this.icon}}
+                                            <span class="me-2" style="font-size: 18px;">{{this.icon}}</span>
                                             {{else}}
                                             <i class="fas fa-credit-card me-2"></i>
                                             {{/if}}
@@ -233,7 +312,6 @@
 
 <script>
 function editPaymentMethod(id) {
-    // TODO: Implement edit functionality
     alert('Chức năng chỉnh sửa sẽ được triển khai sau');
 }
 
@@ -254,8 +332,9 @@ function deletePaymentMethod(id, name) {
     }
 }
 
+
 function initDefaultPaymentMethods() {
-    if (confirm('Bạn có chắc chắn muốn khởi tạo các phương thức thanh toán mặc định? Điều này sẽ thêm Tiền mặt, Chuyển khoản ngân hàng và các ví điện tử.')) {
+    if (confirm('Bạn có chắc chắn muốn khởi tạo các phương thức thanh toán mặc định? Điều này sẽ thêm Tiền mặt và VNPay.')) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/admin/init-payment-methods';

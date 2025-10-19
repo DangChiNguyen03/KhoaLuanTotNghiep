@@ -143,7 +143,14 @@
                                                     {{#each this.items}}
                                                     <div class="d-flex align-items-center mb-2">
                                                         {{#if this.product.image}}
-                                                        <img src="/{{this.product.image}}" alt="{{this.product.name}}" class="me-2" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">
+                                                        <img src="{{this.product.image}}" alt="{{this.product.name}}" class="me-2" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+                                                        <div class="me-2 d-none" style="width: 40px; height: 40px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center;">
+                                                            <i class="fas fa-image text-muted" style="font-size: 16px;"></i>
+                                                        </div>
+                                                        {{else}}
+                                                        <div class="me-2" style="width: 40px; height: 40px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center;">
+                                                            <i class="fas fa-image text-muted" style="font-size: 16px;"></i>
+                                                        </div>
                                                         {{/if}}
                                                         <div>
                                                             <strong>{{this.product.name}}</strong>
@@ -166,7 +173,7 @@
                                             </td>
                                             <td>
                                                 <span class="badge {{#if (eq this.paymentMethod 'cash')}}bg-success{{else}}bg-info{{/if}}">
-                                                    {{#if (eq this.paymentMethod 'cash')}}Tiền mặt{{else}}Chuyển khoản{{/if}}
+                                                    {{#if (eq this.paymentMethod 'cash')}}Tiền mặt{{else}}VNPay{{/if}}
                                                 </span>
                                             </td>
                                             <td>

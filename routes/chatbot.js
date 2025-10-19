@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const Order = require('../models/Order');
+const Voucher = require('../models/Voucher');
 const fetch = require('node-fetch');
 global.fetch = fetch;  // Override built-in fetch
 const { GoogleGenAI } = require('@google/genai');
@@ -10,7 +11,7 @@ const { GoogleGenAI } = require('@google/genai');
 const genAI = new GoogleGenAI({});
 
 // Hàm gọi Gemini AI đơn giản
-async function callGeminiAI(message, products, bestSellers) {
+async function callGeminiAI(message, products, bestSellers, vouchers) {
     try {
         console.log('🤖 Đang gọi Gemini AI...');
         console.log(`📊 Database info: ${products.length} products, ${bestSellers.length} best sellers`);
@@ -45,6 +46,25 @@ Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 7:00-22:00, giao hàn
             bestSellers.slice(0, 5).forEach((item, index) => {
                 prompt += item.productName;
                 if (index < bestSellers.length - 1) prompt += ', ';
+            });
+        }
+
+        // Thêm thông tin vouchers/mã giảm giá
+        if (vouchers.length > 0) {
+            prompt += `\n\nMÃ GIẢM GIÁ HIỆN TẠI:`;
+            vouchers.forEach(voucher => {
+                prompt += `\n• ${voucher.code}: ${voucher.description}`;
+                if (voucher.discountType === 'percentage') {
+                    prompt += ` (Giảm ${voucher.discountValue}%)`;
+                } else if (voucher.discountType === 'special_day_fixed_price') {
+                    prompt += ` (Đồng giá ${voucher.fixedPrice?.toLocaleString()}đ)`;
+                }
+                if (voucher.applicableCategory) {
+                    prompt += ` - Áp dụng: ${voucher.applicableCategory}`;
+                }
+                if (voucher.startTime && voucher.endTime) {
+                    prompt += ` - Thời gian: ${voucher.startTime}h-${voucher.endTime}h`;
+                }
             });
         }
 
@@ -89,12 +109,12 @@ Hãy trả lời dựa trên menu thực tế. CHỈ hướng dẫn đặt hàng
         
         // Fallback thông minh với database
         console.log('🔄 Dùng AI fallback thông minh...');
-        return generateSmartFallback(message, products, bestSellers);
+        return generateSmartFallback(message, products, bestSellers, vouchers);
     }
 }
 
 // Fallback thông minh khi Gemini lỗi
-function generateSmartFallback(message, products, bestSellers) {
+function generateSmartFallback(message, products, bestSellers, vouchers) {
     const msg = message.toLowerCase();
     
     // Kiểm tra nếu khách hàng đã chốt/quyết định mua
@@ -194,6 +214,48 @@ function generateSmartFallback(message, products, bestSellers) {
         return '💰 **BẢNG GIÁ YOLOBREW:**\n\n🍹 Đồ uống: 25,000đ - 65,000đ\n🧋 Topping: 5,000đ - 10,000đ\n🚚 Giao hàng: MIỄN PHÍ (bán kính 3km)\n\n🎉 **ưu đãi đặc biệt:**\n• Khách mới: Giảm 10%\n• Mua 2 tặng 1 topping\n\nBạn muốn biết giá món cụ thể nào không? 😊';
     }
     
+    // Vouchers/Mã giảm giá
+    if (msg.includes('voucher') || msg.includes('mã giảm giá') || msg.includes('khuyến mãi') || msg.includes('giảm giá') || msg.includes('ưu đãi')) {
+        if (vouchers.length > 0) {
+            let response = '🎉 **MÃ GIẢM GIÁ HIỆN TẠI:**\n\n';
+            vouchers.forEach(voucher => {
+                response += `🎫 **${voucher.code}**\n`;
+                response += `📝 ${voucher.description}\n`;
+                
+                if (voucher.discountType === 'percentage') {
+                    response += `💰 Giảm ${voucher.discountValue}%\n`;
+                } else if (voucher.discountType === 'special_day_fixed_price') {
+                    response += `💰 Đồng giá ${voucher.fixedPrice?.toLocaleString()}đ\n`;
+                }
+                
+                if (voucher.applicableCategory) {
+                    response += `🏷️ Áp dụng: ${voucher.applicableCategory}\n`;
+                }
+                
+                if (voucher.startTime && voucher.endTime) {
+                    response += `⏰ Thời gian: ${voucher.startTime}h - ${voucher.endTime}h\n`;
+                }
+                
+                if (voucher.specialDay !== null) {
+                    const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                    response += `📅 Ngày áp dụng: ${days[voucher.specialDay]}\n`;
+                }
+                
+                response += '\n';
+            });
+            response += '✨ Nhập mã khi đặt hàng để được giảm giá!';
+            
+            if (isOrdering) {
+                response += '\n\n🛒 **ĐẶT HÀNG NGAY:**\n';
+                response += '• 🌐 Đăng ký tài khoản trên website\n';
+                response += '• 📞 Gọi hotline: 0123-456-789\n';
+                response += '• 🏪 Ghé trực tiếp cửa hàng 😊';
+            }
+            return response;
+        }
+        return '🎉 Chúng tôi thường xuyên có các chương trình khuyến mãi hấp dẫn! Liên hệ 0123-456-789 để biết thêm chi tiết! 😊';
+    }
+    
     // Đặt hàng
     if (msg.includes('đặt hàng') || msg.includes('order') || msg.includes('mua')) {
         return '🛒 **CÁCH ĐẶT HÀNG TẠI YOLOBREW:**\n\n1️⃣ Chọn món yêu thích từ menu\n2️⃣ Thêm vào giỏ hàng\n3️⃣ Điền thông tin giao hàng\n4️⃣ Chọn phương thức thanh toán\n5️⃣ Xác nhận đơn hàng\n\n📞 **Hotline hỗ trợ:** 0123-456-789\n🚚 **Giao hàng:** 15-30 phút\n💳 **Thanh toán:** Tiền mặt, chuyển khoản, ví điện tử\n\nBạn cần hỗ trợ thêm gì không? 😊';
@@ -244,8 +306,12 @@ router.post('/', async (req, res) => {
         ]);
         console.log(`🏆 Tìm thấy ${bestSellers.length} sản phẩm bán chạy`);
         
+        // Lấy vouchers đang hoạt động
+        const vouchers = await Voucher.find({ isActive: true }).lean();
+        console.log(`🎫 Tìm thấy ${vouchers.length} vouchers đang hoạt động`);
+        
         // Gọi Gemini AI
-        const reply = await callGeminiAI(message, products, bestSellers);
+        const reply = await callGeminiAI(message, products, bestSellers, vouchers);
         
         res.json({ reply });
         

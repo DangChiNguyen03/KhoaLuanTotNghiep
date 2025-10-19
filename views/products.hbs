@@ -119,14 +119,9 @@
                             <option value="0%">0%</option>
                         </select>
                     </div>
-                    <div class="mb-3" id="toppingOptions">
-                        <label class="form-label">Chọn topping:</label>
-                        {{#each toppings}}
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="toppings[]" value="{{this}}" id="topping-{{this}}">
-                            <label class="form-check-label" for="topping-{{this}}">{{this}}</label>
-                        </div>
-                        {{/each}}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Lưu ý:</strong> Để thêm topping, vui lòng tìm và đặt topping như sản phẩm riêng biệt trong danh sách sản phẩm.
                     </div>
                 </form>
             </div>
@@ -156,7 +151,7 @@ function updateFilters() {
 document.addEventListener('DOMContentLoaded', function() {
     const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
     const addToCartForm = document.getElementById('addToCartForm');
-    const toppingOptions = document.getElementById('toppingOptions');
+    // toppingOptions removed - users must buy toppings separately
     const sugarLevelOptions = document.getElementById('sugarLevelOptions');
     const iceLevelOptions = document.getElementById('iceLevelOptions');
 
@@ -173,14 +168,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const sizeOptions = document.getElementById('sizeOptions');
                 const sizeSelect = document.getElementById('cartProductSize');
 
-                // Reset hiển thị mặc định
-                toppingOptions.style.display = 'block';
+                // Reset hiển thị mặc định - toppings always hidden
                 sizeOptions.style.display = 'block';
                 sugarLevelOptions.style.display = 'block';
                 iceLevelOptions.style.display = 'block';
 
                 if (product.category === 'Topping') {
-                    toppingOptions.style.display = 'none';
                     sizeOptions.style.display = 'none';
 
                     // Nếu là Trân Châu Đen hoặc Trân Châu Trắng thì ẩn luôn đường + đá
@@ -213,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const quantity = formData.get('quantity');
         const sugarLevel = formData.get('sugarLevel');
         const iceLevel = formData.get('iceLevel');
-        const toppings = formData.getAll('toppings[]');
+        const toppings = []; // No toppings - users must buy toppings separately
         const size = formData.get('size'); 
         
         try {

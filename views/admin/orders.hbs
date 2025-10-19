@@ -68,7 +68,7 @@
             <div class="card mb-4">
                 <div class="card-body">
                     <form method="GET" action="/admin/orders" class="row g-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Trạng thái</label>
                             <select class="form-select" name="status">
                                 <option value="">Tất cả trạng thái</option>
@@ -76,7 +76,15 @@
                                 <option value="cancelled" {{#if (eq status 'cancelled')}}selected{{/if}}>Đã hủy</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-3">
+                            <label class="form-label">Thanh toán</label>
+                            <select class="form-select" name="paymentMethod">
+                                <option value="">Tất cả phương thức</option>
+                                <option value="cash" {{#if (eq paymentMethod 'cash')}}selected{{/if}}>💰 Tiền mặt</option>
+                                <option value="vnpay" {{#if (eq paymentMethod 'vnpay')}}selected{{/if}}>💳 VNPay</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Tìm kiếm</label>
                             <input type="text" class="form-control" name="search" placeholder="Tìm kiếm theo mã đơn, tên khách hàng..." value="{{search}}">
                         </div>
@@ -143,7 +151,7 @@
                                             <div class="mb-2">
                                                 <div class="d-flex align-items-center">
                                                     {{#if this.product.image}}
-                                                    <img src="/{{this.product.image}}" alt="{{this.product.name}}" class="me-2" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+                                                    <img src="{{this.product.image}}" alt="{{this.product.name}}" class="me-2" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
                                                     <div class="me-2 d-none" style="width: 30px; height: 30px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center;">
                                                         <i class="fas fa-image text-muted" style="font-size: 12px;"></i>
                                                     </div>
@@ -180,8 +188,8 @@
                                         <strong class="text-success">{{formatPrice this.totalPrice}}</strong>
                                     </td>
                                     <td>
-                                        <span class="badge {{#if (eq this.paymentMethod 'cash')}}bg-success{{else}}bg-info{{/if}}">
-                                            {{#if (eq this.paymentMethod 'cash')}}Tiền mặt{{else}}Chuyển khoản{{/if}}
+                                        <span class="badge {{#if (eq this.paymentMethod 'cash')}}bg-success{{else if (eq this.paymentMethod 'vnpay')}}bg-primary{{else}}bg-info{{/if}}">
+                                            {{#if (eq this.paymentMethod 'cash')}}💰 Tiền mặt{{else if (eq this.paymentMethod 'vnpay')}}💳 VNPay{{else if (eq this.paymentMethod 'bank')}}💳 VNPay{{else if (eq this.paymentMethod 'momo')}}📱 MoMo{{else}}{{this.paymentMethod}}{{/if}}
                                         </span>
                                     </td>
                                     <td>
