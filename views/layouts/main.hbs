@@ -154,32 +154,45 @@
 
     <!-- Bootstrap JS -->
     <!-- Chatbot Widget - Enhanced UI -->
-    <div id="chatbot-widget" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
-        <div id="chatbot-box" style="width: 380px; background: #fff; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: none; flex-direction: column; border: 1px solid #e0e0e0;">
+    <div id="chatbot-widget" style="position: fixed; bottom: 10px; right: 10px; z-index: 9999;">
+        <div id="chatbot-box" style="width: 350px; background: #fff; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: none; flex-direction: column; border: 1px solid #e0e0e0;">
             <!-- Header -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 16px 20px; border-radius: 15px 15px 0 0; display: flex; align-items: center; justify-content: space-between;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 8px 16px; border-radius: 15px 15px 0 0; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center;">
                     <div style="width: 10px; height: 10px; background: #4ade80; border-radius: 50%; margin-right: 8px; animation: pulse 2s infinite;"></div>
-                    <span style="font-weight: 600; font-size: 16px;">🤖 YOLOBrew AI Assistant</span>
+                    <span style="font-weight: 600; font-size: 16px;">Chatbox AI hỗ trợ</span>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button id="chatbot-clear" style="background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; opacity: 0.8; padding: 4px 6px; border-radius: 4px; transition: all 0.2s;" title="Xóa lịch sử">
                         <i class="fas fa-trash"></i>
                     </button>
-                    <button id="chatbot-minimize" style="background: none; border: none; color: #fff; font-size: 16px; cursor: pointer; opacity: 0.8; padding: 4px 6px; border-radius: 4px; transition: all 0.2s;" title="Thu nhỏ">
+                    <button id="chatbot-minimize" style="background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; opacity: 0.8; padding: 4px 6px; border-radius: 4px; transition: all 0.2s;" title="Thu nhỏ">
                         <i class="fas fa-minus"></i>
                     </button>
-                    <button id="chatbot-close" style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; opacity: 0.8; padding: 0;" title="Đóng">×</button>
+                    <button id="chatbot-close" style="background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; opacity: 0.8; padding: 0;" title="Đóng">×</button>
                 </div>
             </div>
             
+            {{!--Mở đầu chat--}}
+            <div style="text-align: center; color: #666; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <div style="background: #FFF2D7; border-radius: 8px; padding: 4px 8px; display: flex; flex-direction:column; align-items: center; margin-bottom: 12px">
+                    <img src="/images/AIchatbox.png" style=" width: 110px; height: 110px; margin-bottom: 8px;"></img>
+                    <span style="color: #F98866; font-size: 18px; font-weight: bold;">Xin chào! Tôi là trợ lý AI của YOLOBrew</span>
+                </div>
+                <div style="color: #888; font-size: 12px;">
+                    Tôi có thể giúp bạn về menu, giá cả, khuyến mãi và đặt hàng
+                </div>
+            </div>
+
+
             <!-- Messages Area -->
-            <div id="chatbot-messages" style="padding: 16px; height: 300px; overflow-y: auto; font-size: 14px; line-height: 1.5; background: #fafafa;">
+            <div id="chatbot-messages" style="padding: 16px; height: 200px; overflow-y: auto; font-size: 14px; line-height: 1.5; background: #fafafa;">
                 <!-- Messages will be loaded here -->
+                
             </div>
             
             <!-- Input Area -->
-            <form id="chatbot-form" style="display: flex; border-top: 1px solid #e0e0e0; background: #fff; border-radius: 0 0 15px 15px;">
+            <form id="chatbot-form" style="display: flex; border-top: 1px solid #e0e0e0; background: #fff; border-radius: 0 0 15px 15px">
                 <textarea id="chatbot-input" placeholder="Hỏi về menu, giá cả, khuyến mãi..." autocomplete="off" style="flex: 1; border: none; padding: 14px 16px; outline: none; font-size: 14px; resize: none; min-height: 20px; max-height: 80px; overflow-y: auto; background: transparent; font-family: inherit;"></textarea>
                 <button type="submit" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; padding: 0 20px; cursor: pointer; border-radius: 0 0 15px 0; transition: all 0.2s;">
                     <i class="fas fa-paper-plane"></i>
@@ -204,7 +217,7 @@
         </div>
         
         <!-- Toggle Button -->
-        <button id="chatbot-toggle" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 50%; width: 60px; height: 60px; font-size: 24px; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4); cursor: pointer; transition: all 0.3s ease; position: relative;">
+        <button id="chatbot-toggle" style="bottom: 70px; right: 70px;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 50%; width: 60px; height: 60px; font-size: 24px; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4); cursor: pointer; transition: all 0.3s ease; position: relative;">
             <i class="fas fa-comments"></i>
             <div style="position: absolute; top: -8px; right: -8px; background: #ff4757; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold;">AI</div>
         </button>
@@ -248,6 +261,7 @@
         }
     </style>
     <script>
+        const chatbotWidget = document.getElementById('chatbot-widget');
         const chatbotToggle = document.getElementById('chatbot-toggle');
         const chatbotBox = document.getElementById('chatbot-box');
         const chatbotMinimized = document.getElementById('chatbot-minimized');
@@ -284,21 +298,6 @@
                 console.log('Error loading chat history:', error);
                 showWelcomeMessage();
             }
-        }
-
-        // Show welcome message
-        function showWelcomeMessage() {
-            chatbotMessages.innerHTML = `
-                <div style="text-align: center; color: #666; margin-bottom: 16px; font-size: 13px;">
-                    <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
-                        <i class="fas fa-robot" style="color: #1976d2; margin-right: 6px;"></i>
-                        <strong>Xin chào! Tôi là trợ lý AI của YOLOBrew</strong>
-                    </div>
-                    <div style="color: #888; font-size: 12px;">
-                        Tôi có thể giúp bạn về menu, giá cả, khuyến mãi và đặt hàng 🍹
-                    </div>
-                </div>
-            `;
         }
 
         // Save chat history to sessionStorage (chỉ trong phiên)
@@ -378,7 +377,7 @@
         function clearChatHistory() {
             if (confirm('Bạn có chắc muốn xóa toàn bộ lịch sử chat?')) {
                 sessionStorage.removeItem(CHAT_STORAGE_KEY);
-                showWelcomeMessage();
+                chatbotMessages.innerHTML= "";
             }
         }
 
