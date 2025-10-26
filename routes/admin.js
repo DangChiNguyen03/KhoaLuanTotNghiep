@@ -1074,9 +1074,15 @@ router.get('/payments', isAdmin, async (req, res) => {
 // Cập nhật trạng thái thanh toán
 router.put('/payments/:id/status', isAdmin, async (req, res) => {
     try {
+        console.log('🔧 PUT /payments/:id/status called');
+        console.log('📝 Request body:', req.body);
+        console.log('🆔 Payment ID:', req.params.id);
+        console.log('👤 User:', req.user?.email, req.user?.role);
+        
         const { status, notes } = req.body;
         
         if (!['pending', 'paid', 'failed', 'refunded'].includes(status)) {
+            console.log('❌ Invalid status:', status);
             req.flash('error_msg', 'Trạng thái thanh toán không hợp lệ');
             return res.redirect('/admin/payments');
         }
@@ -1092,19 +1098,104 @@ router.put('/payments/:id/status', isAdmin, async (req, res) => {
             updateData.paidAt = new Date();
         }
         
+        console.log('📊 Update data:', updateData);
+        
         const payment = await Payment.findByIdAndUpdate(req.params.id, updateData, { new: true });
+        console.log('💳 Updated payment:', payment ? 'SUCCESS' : 'NOT FOUND');
         
         // Cập nhật trạng thái thanh toán của đơn hàng
-        if (payment.order) {
+        if (payment && payment.order) {
             await Order.findByIdAndUpdate(payment.order, { paymentStatus: status });
+            console.log('📦 Updated order payment status');
         }
         
         req.flash('success_msg', 'Cập nhật trạng thái thanh toán thành công');
         res.redirect('/admin/payments');
     } catch (err) {
-        console.error('Lỗi khi cập nhật trạng thái thanh toán:', err);
-        req.flash('error_msg', 'Lỗi khi cập nhật trạng thái thanh toán');
+        console.error('❌ Lỗi khi cập nhật trạng thái thanh toán:', err);
+        req.flash('error_msg', 'Lỗi khi cập nhật trạng thái thanh toán: ' + err.message);
         res.redirect('/admin/payments');
+    }
+});
+
+// Backup route POST cho payment status update (nếu PUT không hoạt động)
+router.post('/payments/:id/status', isAdmin, async (req, res) => {
+    try {
+        console.log('🔧 POST /payments/:id/status called (backup route)');
+        console.log('📝 Request body:', req.body);
+        console.log('🆔 Payment ID:', req.params.id);
+        console.log('👤 User:', req.user?.email, req.user?.role);
+        
+        const { status, notes } = req.body;
+        
+        if (!['pending', 'paid', 'failed', 'refunded'].includes(status)) {
+            console.log('❌ Invalid status:', status);
+            req.flash('error_msg', 'Trạng thái thanh toán không hợp lệ');
+            return res.redirect('/admin/payments');
+        }
+        
+        const updateData = {
+            status,
+            notes,
+            processedBy: req.user._id
+        };
+        
+        // Nếu đánh dấu là đã thanh toán, cập nhật thời gian
+        if (status === 'paid') {
+            updateData.paidAt = new Date();
+        }
+        
+        console.log('📊 Update data:', updateData);
+        
+        const payment = await Payment.findByIdAndUpdate(req.params.id, updateData, { new: true });
+        console.log('💳 Updated payment:', payment ? 'SUCCESS' : 'NOT FOUND');
+        
+        // Cập nhật trạng thái thanh toán của đơn hàng
+        if (payment && payment.order) {
+            await Order.findByIdAndUpdate(payment.order, { paymentStatus: status });
+            console.log('📦 Updated order payment status');
+        }
+        
+        req.flash('success_msg', 'Cập nhật trạng thái thanh toán thành công');
+        res.redirect('/admin/payments');
+    } catch (err) {
+        console.error('❌ Lỗi khi cập nhật trạng thái thanh toán:', err);
+        req.flash('error_msg', 'Lỗi khi cập nhật trạng thái thanh toán: ' + err.message);
+        res.redirect('/admin/payments');
+    }
+});
+
+// API lấy chi tiết payment
+router.get('/payments/:id/detail', isAdmin, async (req, res) => {
+    try {
+        const payment = await Payment.findById(req.params.id)
+            .populate('user', 'name email phone')
+            .populate({
+                path: 'order',
+                populate: {
+                    path: 'items.product',
+                    select: 'name category'
+                }
+            })
+            .populate('processedBy', 'name');
+
+        if (!payment) {
+            return res.json({
+                success: false,
+                message: 'Không tìm thấy giao dịch'
+            });
+        }
+
+        res.json({
+            success: true,
+            payment: payment
+        });
+    } catch (error) {
+        console.error('Error fetching payment detail:', error);
+        res.json({
+            success: false,
+            message: 'Lỗi server khi tải chi tiết giao dịch'
+        });
     }
 });
 
@@ -2719,9 +2810,27 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
         const paymentsInRange = await Payment.countDocuments(paymentFilter);
         console.log('💳 Payment counts:', { totalPaymentsInDB, paymentsInRange });
         
-        // Payment statistics
+        // Payment statistics - CHỈ TÍNH PAYMENTS CỦA ĐƠN HÀNG CHƯA BỊ HỦY
         const paymentStats = await Payment.aggregate([
             { $match: paymentFilter },
+            // Lookup order để kiểm tra trạng thái
+            {
+                $lookup: {
+                    from: 'orders',
+                    localField: 'order',
+                    foreignField: '_id',
+                    as: 'orderInfo'
+                }
+            },
+            // Chỉ tính payments của đơn hàng chưa bị hủy
+            {
+                $match: {
+                    $or: [
+                        { orderInfo: { $size: 0 } }, // Payments không có order (cash payments)
+                        { 'orderInfo.status': { $ne: 'cancelled' } } // Orders chưa bị hủy
+                    ]
+                }
+            },
             {
                 $group: {
                     _id: null,
@@ -2735,7 +2844,20 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
             }
         ]);
         
-        console.log('💳 Payment stats result:', paymentStats[0]);
+        console.log('💳 Payment stats result (EXCLUDING CANCELLED ORDERS):', paymentStats[0]);
+        
+        // Debug: So sánh với tổng payments không filter
+        const allPaymentStats = await Payment.aggregate([
+            { $match: paymentFilter },
+            {
+                $group: {
+                    _id: null,
+                    totalPayments: { $sum: 1 },
+                    totalAmount: { $sum: '$amount' }
+                }
+            }
+        ]);
+        console.log('💳 ALL Payment stats (INCLUDING CANCELLED):', allPaymentStats[0]);
         
         // Debug: Show what should be displayed
         const displayStats = paymentStats[0] || { 
@@ -2763,9 +2885,27 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
             date: p.createdAt.toISOString().split('T')[0]
         })));
         
-        // Payment trends by day
+        // Payment trends by day - CHỈ TÍNH PAYMENTS CỦA ĐƠN HÀNG CHƯA BỊ HỦY
         const paymentTrends = await Payment.aggregate([
             { $match: paymentFilter },
+            // Lookup order để kiểm tra trạng thái
+            {
+                $lookup: {
+                    from: 'orders',
+                    localField: 'order',
+                    foreignField: '_id',
+                    as: 'orderInfo'
+                }
+            },
+            // Chỉ tính payments của đơn hàng chưa bị hủy
+            {
+                $match: {
+                    $or: [
+                        { orderInfo: { $size: 0 } }, // Payments không có order (cash payments)
+                        { 'orderInfo.status': { $ne: 'cancelled' } } // Orders chưa bị hủy
+                    ]
+                }
+            },
             {
                 $group: {
                     _id: { 
@@ -2895,6 +3035,24 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
                     status: 'paid'
                 }
             },
+            // Lookup order để kiểm tra trạng thái
+            {
+                $lookup: {
+                    from: 'orders',
+                    localField: 'order',
+                    foreignField: '_id',
+                    as: 'orderInfo'
+                }
+            },
+            // Chỉ tính payments của đơn hàng chưa bị hủy
+            {
+                $match: {
+                    $or: [
+                        { orderInfo: { $size: 0 } }, // Payments không có order (cash payments)
+                        { 'orderInfo.status': { $ne: 'cancelled' } } // Orders chưa bị hủy
+                    ]
+                }
+            },
             {
                 $addFields: {
                     vietnamDate: { 
@@ -2929,12 +3087,30 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
         
         console.log('💳 Today hourly revenue:', hourlyRevenue);
         
-        // Average hourly revenue for the selected period (for comparison)
+        // Average hourly revenue for the selected period (for comparison) - CHỈ TÍNH ĐƠN HÀNG CHƯA BỊ HỦY
         const avgHourlyRevenue = await Payment.aggregate([
             { 
                 $match: { 
                     ...paymentFilter,
                     status: 'paid'
+                }
+            },
+            // Lookup order để kiểm tra trạng thái
+            {
+                $lookup: {
+                    from: 'orders',
+                    localField: 'order',
+                    foreignField: '_id',
+                    as: 'orderInfo'
+                }
+            },
+            // Chỉ tính payments của đơn hàng chưa bị hủy
+            {
+                $match: {
+                    $or: [
+                        { orderInfo: { $size: 0 } }, // Payments không có order (cash payments)
+                        { 'orderInfo.status': { $ne: 'cancelled' } } // Orders chưa bị hủy
+                    ]
                 }
             },
             {

@@ -24,7 +24,7 @@ QUAN TRỌNG: CHỈ khi khách hàng đã CHỐT/QUYẾT ĐỊNH MUA (vd: "cho t
 - Hoặc gọi hotline 0123-456-789 để đặt hàng  
 - Hoặc ghé trực tiếp cửa hàng
 
-Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 7:00-22:00, giao hàng miễn phí bán kính 3km, khuyến mãi mua 2 tặng 1 topping.`;
+Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 7:00-22:00, giao hàng miễn phí bán kính 3km.`;
 
         // Thêm menu từ database
         if (products.length > 0) {
@@ -139,7 +139,7 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
                 milkTeaProducts.forEach(product => {
                     response += `• ${product.name} - ${product.price?.toLocaleString()}đ\n`;
                 });
-                response += '\n🎁 **Khuyến mãi:** Mua 2 tặng 1 topping!';
+                // Không có khuyến mãi mặc định
                 
                 // Chỉ thêm hướng dẫn đặt hàng khi khách đã chốt
                 if (isOrdering) {
@@ -169,7 +169,7 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
                 });
                 response += '\n';
             });
-            response += '🎉 **Khuyến mãi:** Mua 2 tặng 1 topping!';
+            // Không có khuyến mãi mặc định
             
             // Chỉ thêm hướng dẫn đặt hàng khi khách đã chốt
             if (isOrdering) {
@@ -211,7 +211,7 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
     
     // Giá cả
     if (msg.includes('giá') || msg.includes('bao nhiêu') || msg.includes('tiền')) {
-        return '💰 **BẢNG GIÁ YOLOBREW:**\n\n🍹 Đồ uống: 25,000đ - 65,000đ\n🧋 Topping: 5,000đ - 10,000đ\n🚚 Giao hàng: MIỄN PHÍ (bán kính 3km)\n\n🎉 **ưu đãi đặc biệt:**\n• Khách mới: Giảm 10%\n• Mua 2 tặng 1 topping\n\nBạn muốn biết giá món cụ thể nào không? 😊';
+        return '💰 **BẢNG GIÁ YOLOBREW:**\n\n🍹 Đồ uống: 25,000đ - 65,000đ\n🧋 Topping: 5,000đ - 10,000đ\n🚚 Giao hàng: MIỄN PHÍ (bán kính 3km)\n\nBạn muốn biết giá món cụ thể nào không? 😊';
     }
     
     // Vouchers/Mã giảm giá

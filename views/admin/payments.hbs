@@ -214,13 +214,43 @@
                                                 <i class="fas fa-times"></i>
                                             </button>
                                             {{else if (eq this.status 'paid')}}
-                                            {{#if (and this.order (eq this.order.status 'cancelled'))}}
-                                            <button type="button" class="btn btn-sm btn-warning" onclick="updatePaymentStatus('{{this._id}}', 'refunded')" title="Hoàn tiền">
-                                                <i class="fas fa-undo"></i>
-                                            </button>
+                                            {{#if this.order}}
+                                                {{#if (eq this.order.status 'cancelled')}}
+                                                <button type="button" class="btn btn-sm btn-warning" onclick="updatePaymentStatus('{{this._id}}', 'refunded')" title="Hoàn tiền cho đơn hàng đã hủy">
+                                                    <i class="fas fa-undo"></i> Hoàn tiền
+                                                </button>
+                                                {{else if (eq this.order.status 'completed')}}
+                                                <span class="text-success small">
+                                                    <i class="fas fa-check-circle"></i> 
+                                                    Đơn hàng hoàn thành
+                                                </span>
+                                                {{else if (eq this.order.status 'confirmed')}}
+                                                <span class="text-info small">
+                                                    <i class="fas fa-clock"></i> 
+                                                    Đang xử lý
+                                                </span>
+                                                {{else}}
+                                                <span class="text-muted small">
+                                                    <i class="fas fa-info-circle"></i> 
+                                                    Trạng thái: {{this.order.status}}
+                                                </span>
+                                                {{/if}}
                                             {{else}}
-                                            <span class="text-muted small">Chỉ hoàn tiền khi đơn hàng đã hủy</span>
+                                            <span class="text-warning small">
+                                                <i class="fas fa-exclamation-triangle"></i> 
+                                                Không có đơn hàng
+                                            </span>
                                             {{/if}}
+                                            {{else if (eq this.status 'refunded')}}
+                                            <span class="text-success small">
+                                                <i class="fas fa-check-double"></i> 
+                                                Đã hoàn tiền
+                                            </span>
+                                            {{else if (eq this.status 'failed')}}
+                                            <span class="text-danger small">
+                                                <i class="fas fa-times-circle"></i> 
+                                                Thanh toán thất bại
+                                            </span>
                                             {{/if}}
                                             <button type="button" class="btn btn-sm btn-info" onclick="viewPaymentDetail('{{this._id}}')" title="Xem chi tiết">
                                                 <i class="fas fa-eye"></i>
@@ -313,6 +343,32 @@
     </div>
 </div>
 
+<!-- Modal Chi tiết giao dịch -->
+<div class="modal fade" id="paymentDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-receipt me-2"></i>
+                    Chi tiết giao dịch
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="paymentDetailContent">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-2">Đang tải thông tin giao dịch...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 function updatePaymentStatus(paymentId, status) {
     const statusText = {
@@ -321,7 +377,14 @@ function updatePaymentStatus(paymentId, status) {
         'refunded': 'hoàn tiền'
     };
     
-    if (confirm(`Bạn có chắc chắn muốn đánh dấu giao dịch này là ${statusText[status]}?`)) {
+    let confirmMessage = `Bạn có chắc chắn muốn đánh dấu giao dịch này là ${statusText[status]}?`;
+    
+    // Thêm cảnh báo đặc biệt cho hoàn tiền
+    if (status === 'refunded') {
+        confirmMessage = `⚠️ HOÀN TIỀN\n\nBạn có chắc chắn muốn hoàn tiền cho giao dịch này?\n\n• Chỉ hoàn tiền cho đơn hàng đã bị hủy\n• Hành động này không thể hoàn tác\n• Tiền sẽ được hoàn lại cho khách hàng\n\nXác nhận hoàn tiền?`;
+    }
+    
+    if (confirm(confirmMessage)) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/admin/payments/${paymentId}/status`;
@@ -336,6 +399,15 @@ function updatePaymentStatus(paymentId, status) {
         statusInput.name = 'status';
         statusInput.value = status;
         
+        // Thêm ghi chú tự động cho hoàn tiền
+        if (status === 'refunded') {
+            const notesInput = document.createElement('input');
+            notesInput.type = 'hidden';
+            notesInput.name = 'notes';
+            notesInput.value = `Hoàn tiền cho đơn hàng đã hủy - ${new Date().toLocaleString('vi-VN')}`;
+            form.appendChild(notesInput);
+        }
+        
         form.appendChild(methodInput);
         form.appendChild(statusInput);
         document.body.appendChild(form);
@@ -344,7 +416,225 @@ function updatePaymentStatus(paymentId, status) {
 }
 
 function viewPaymentDetail(paymentId) {
-    // Tạm thời hiển thị thông báo, có thể mở rộng sau
-    alert('Chi tiết giao dịch #' + paymentId.substring(0, 8));
+    // Hiển thị modal
+    const modal = new bootstrap.Modal(document.getElementById('paymentDetailModal'));
+    modal.show();
+    
+    // Reset nội dung về loading state
+    document.getElementById('paymentDetailContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Đang tải...</span>
+            </div>
+            <p class="mt-2">Đang tải thông tin giao dịch...</p>
+        </div>
+    `;
+    
+    // Gọi API để lấy chi tiết
+    fetch(`/admin/payments/${paymentId}/detail`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayPaymentDetail(data.payment);
+            } else {
+                displayError(data.message || 'Không thể tải thông tin giao dịch');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            displayError('Lỗi kết nối. Vui lòng thử lại.');
+        });
+}
+
+function displayPaymentDetail(payment) {
+    const content = document.getElementById('paymentDetailContent');
+    
+    const statusBadge = getStatusBadge(payment.status);
+    const methodBadge = getMethodBadge(payment.paymentMethod);
+    
+    content.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Thông tin cơ bản</h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Mã giao dịch:</strong></td>
+                                <td><code>${payment._id}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Số tiền:</strong></td>
+                                <td><span class="text-success fw-bold">${formatPrice(payment.amount)}</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Trạng thái:</strong></td>
+                                <td>${statusBadge}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Phương thức:</strong></td>
+                                <td>${methodBadge}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Ngày tạo:</strong></td>
+                                <td>${formatDateTime(payment.createdAt)}</td>
+                            </tr>
+                            ${payment.paidAt ? `
+                            <tr>
+                                <td><strong>Ngày thanh toán:</strong></td>
+                                <td>${formatDateTime(payment.paidAt)}</td>
+                            </tr>
+                            ` : ''}
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-user me-2"></i>Thông tin khách hàng</h6>
+                    </div>
+                    <div class="card-body">
+                        ${payment.user ? `
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Tên:</strong></td>
+                                <td>${payment.user.name}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Email:</strong></td>
+                                <td>${payment.user.email}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Điện thoại:</strong></td>
+                                <td>${payment.user.phone || 'Chưa cập nhật'}</td>
+                            </tr>
+                        </table>
+                        ` : '<p class="text-muted">Không có thông tin khách hàng</p>'}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        ${payment.order ? `
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Thông tin đơn hàng</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <p><strong>Mã đơn hàng:</strong><br><code>${payment.order._id}</code></p>
+                            </div>
+                            <div class="col-md-4">
+                                <p><strong>Tổng tiền:</strong><br><span class="text-success fw-bold">${formatPrice(payment.order.totalPrice)}</span></p>
+                            </div>
+                            <div class="col-md-4">
+                                <p><strong>Trạng thái đơn hàng:</strong><br>${getOrderStatusBadge(payment.order.status)}</p>
+                            </div>
+                        </div>
+                        ${payment.order.items && payment.order.items.length > 0 ? `
+                        <h6 class="mt-3">Sản phẩm đã đặt:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Sản phẩm</th>
+                                        <th>Size</th>
+                                        <th>Số lượng</th>
+                                        <th>Đơn giá</th>
+                                        <th>Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${payment.order.items.map(item => `
+                                    <tr>
+                                        <td>${item.product ? item.product.name : 'Sản phẩm đã xóa'}</td>
+                                        <td>${item.size || 'N/A'}</td>
+                                        <td>${item.quantity}</td>
+                                        <td>${formatPrice(item.price || 0)}</td>
+                                        <td>${formatPrice((item.price || 0) * item.quantity)}</td>
+                                    </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+        ` : ''}
+        
+        ${payment.notes ? `
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-sticky-note me-2"></i>Ghi chú</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-0">${payment.notes}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ` : ''}
+    `;
+}
+
+function displayError(message) {
+    document.getElementById('paymentDetailContent').innerHTML = `
+        <div class="text-center text-danger">
+            <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+            <h5>Lỗi</h5>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="badge bg-warning">Chờ xử lý</span>',
+        'paid': '<span class="badge bg-success">Đã thanh toán</span>',
+        'failed': '<span class="badge bg-danger">Thất bại</span>',
+        'refunded': '<span class="badge bg-info">Đã hoàn tiền</span>'
+    };
+    return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+function getMethodBadge(method) {
+    const badges = {
+        'cash': '<span class="badge bg-success"><i class="fas fa-money-bill-wave me-1"></i>Tiền mặt</span>',
+        'vnpay': '<span class="badge bg-primary"><i class="fas fa-credit-card me-1"></i>VNPay</span>',
+        'momo': '<span class="badge bg-danger"><i class="fas fa-mobile-alt me-1"></i>MoMo</span>'
+    };
+    return badges[method] || `<span class="badge bg-secondary">${method}</span>`;
+}
+
+function getOrderStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="badge bg-warning">Chờ xử lý</span>',
+        'confirmed': '<span class="badge bg-info">Đã xác nhận</span>',
+        'completed': '<span class="badge bg-success">Hoàn thành</span>',
+        'cancelled': '<span class="badge bg-danger">Đã hủy</span>'
+    };
+    return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+function formatPrice(price) {
+    return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+    }).format(price);
+}
+
+function formatDateTime(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleString('vi-VN');
 }
 </script>
