@@ -57,6 +57,14 @@ const VoucherSchema = new mongoose.Schema({
         max: 23,
         default: null
     },
+    
+    // Phân quyền theo role - Voucher chỉ áp dụng cho các role cụ thể
+    applicableRoles: {
+        type: [String], // Array of roles: ['admin', 'manager', 'staff', 'customer']
+        enum: ['admin', 'manager', 'staff', 'customer'],
+        default: ['admin', 'manager', 'staff', 'customer'] // Mặc định áp dụng cho tất cả
+    },
+    
     isActive: {
         type: Boolean,
         default: true

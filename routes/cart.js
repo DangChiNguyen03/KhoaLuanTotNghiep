@@ -548,7 +548,7 @@ router.post("/checkout", ensureAuthenticated, async (req, res) => {
       });
       await payment.save();
 
-      order.status = "confirmed";
+      order.status = "confirmed";  // Trả lại logic cũ: confirmed → admin sẽ xử lý tiếp
       await order.save();
 
       // Xóa giỏ hàng và voucher sau khi thanh toán
@@ -699,6 +699,22 @@ router.post('/apply-voucher', isAuthenticated, async (req, res) => {
 
     if (!voucher) {
       return res.status(404).json({ message: 'Mã giảm giá không hợp lệ hoặc đã hết hạn.' });
+    }
+
+    // Check role-based access
+    if (voucher.applicableRoles && voucher.applicableRoles.length > 0) {
+      if (!voucher.applicableRoles.includes(user.role)) {
+        const roleNames = {
+          admin: 'Admin',
+          manager: 'Quản lý',
+          staff: 'Nhân viên',
+          customer: 'Khách hàng'
+        };
+        const allowedRoles = voucher.applicableRoles.map(r => roleNames[r] || r).join(', ');
+        return res.status(403).json({ 
+          message: `Voucher này chỉ dành cho: ${allowedRoles}` 
+        });
+      }
     }
 
     // Check time restrictions

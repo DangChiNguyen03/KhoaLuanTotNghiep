@@ -10,7 +10,9 @@ const DEFAULT_PERMISSIONS = {
         'manage_payments',
         'manage_users',
         'view_reports',
-        'manage_settings'
+        'manage_settings',
+        'view_login_logs',      // Chỉ admin mới xem được login logs
+        'view_audit_logs'       // Chỉ admin mới xem được audit logs
     ],
     manager: [
         'view_dashboard',
@@ -18,7 +20,9 @@ const DEFAULT_PERMISSIONS = {
         'manage_orders',
         'manage_customers',
         'manage_payments',
+        'manage_users',         // Manager có thể quản lý users
         'view_reports'
+        // KHÔNG có view_login_logs và view_audit_logs
     ],
     staff: [
         'view_dashboard',

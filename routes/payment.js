@@ -176,7 +176,7 @@ router.get('/vnpay/callback', async (req, res) => {
 
         if (isSuccess) {
             // Update order and payment status
-            order.status = 'confirmed';
+            order.status = 'confirmed';  // Trả lại logic cũ: confirmed → admin sẽ xử lý tiếp
             order.paymentStatus = 'paid';
             await order.save();
 

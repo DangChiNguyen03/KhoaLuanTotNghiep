@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const Order = require('../models/Order');
@@ -10,11 +11,21 @@ const Payment = require('../models/Payment');
 const PaymentMethod = require('../models/PaymentMethod');
 const LoginLog = require('../models/LoginLog');
 const AuditLog = require('../models/AuditLog');
+const Voucher = require('../models/Voucher');
 const { isAdmin, isAdminOrStaff, isAdminOrManager } = require('../middleware/auth');
 const { ensureAuthenticated } = require('../config/auth');
+const { hasPermission, hasRole, DEFAULT_PERMISSIONS } = require('../middleware/permissions');
+const { validateProduct } = require('../middleware/validate');
+const { 
+    auditUserAction, 
+    auditPasswordReset, 
+    auditRoleChange, 
+    auditStatusChange,
+    logAuditAction 
+} = require('../middleware/auditTrail');
 
-// Login logs route - MUST be before root route
-router.get('/login-logs', isAdmin, async (req, res) => {
+// Login logs route - MUST be before root route - Chỉ admin mới xem được
+router.get('/login-logs', hasPermission('view_login_logs'), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 20;
@@ -197,17 +208,7 @@ router.get('/', isAdmin, (req, res) => {
     res.redirect('/admin/dashboard');
 });
 
-const { validateProduct } = require('../middleware/validate');
-const { hasPermission, hasRole, DEFAULT_PERMISSIONS } = require('../middleware/permissions');
-const { 
-    auditUserAction, 
-    auditPasswordReset, 
-    auditRoleChange, 
-    auditStatusChange,
-    logAuditAction 
-} = require('../middleware/auditTrail');
-const bcrypt = require('bcryptjs');
-
+// Multer configuration for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const dir = 'public/images/products';
@@ -234,7 +235,7 @@ const upload = multer({
     }
 });
 
-router.get('/products', isAdmin, async (req, res) => {
+router.get('/products', isAdminOrManager, async (req, res) => {
     try {
         const products = await Product.find();
         const toppings = await Product.find({ category: 'Topping' }).select('name');
@@ -247,7 +248,7 @@ router.get('/products', isAdmin, async (req, res) => {
     }
 });
 
-router.post('/products', isAdmin, upload.single('image'), validateProduct, async (req, res) => {
+router.post('/products', isAdminOrManager, upload.single('image'), validateProduct, async (req, res) => {
     try {
         let { name, description, category, toppings, sizes } = req.body;
         const image = req.file ? '/images/products/' + req.file.filename : '';
@@ -298,7 +299,7 @@ router.get('/products/:id', isAdmin, async (req, res) => {
     }
 });
 
-router.put('/products/update/:id', isAdmin, upload.single('image'), validateProduct, async (req, res) => {
+router.put('/products/update/:id', isAdminOrManager, upload.single('image'), validateProduct, async (req, res) => {
     try {
         const { name, description, category, price, sizePriceS, sizePriceM, sizePriceL } = req.body;
         let { toppings } = req.body;
@@ -355,7 +356,7 @@ router.put('/products/update/:id', isAdmin, upload.single('image'), validateProd
     }
 });
 
-router.delete('/products/delete/:id', isAdmin, async (req, res) => {
+router.delete('/products/delete/:id', isAdminOrManager, async (req, res) => {
     try {
         await Product.findByIdAndDelete(req.params.id);
 
@@ -576,10 +577,9 @@ router.post('/customers/:id/delete', isAdmin, async (req, res) => {
 });
 
 // ===== VOUCHER MANAGEMENT =====
-const Voucher = require('../models/Voucher');
 
 // Trang quản lý voucher
-router.get('/vouchers', isAdmin, async (req, res) => {
+router.get('/vouchers', isAdminOrManager, async (req, res) => {
     try {
         const vouchers = await Voucher.find().sort({ createdAt: -1 });
         const categories = await Product.distinct('category');
@@ -597,12 +597,13 @@ router.get('/vouchers', isAdmin, async (req, res) => {
 });
 
 // Thêm voucher mới
-router.post('/vouchers', isAdmin, async (req, res) => {
+router.post('/vouchers', isAdminOrManager, async (req, res) => {
     try {
         const {
             code, description, discountType, discountValue,
             applicableCategory, startTime, endTime,
-            specialDay, applicableSize, fixedPrice // New fields
+            specialDay, applicableSize, fixedPrice, // New fields
+            applicableRoles // Role-based access
         } = req.body;
 
         const voucherData = {
@@ -612,6 +613,8 @@ router.post('/vouchers', isAdmin, async (req, res) => {
             applicableCategory: applicableCategory || null,
             startTime: startTime ? parseInt(startTime) : null,
             endTime: endTime ? parseInt(endTime) : null,
+            // Handle applicableRoles - convert to array if single value
+            applicableRoles: Array.isArray(applicableRoles) ? applicableRoles : (applicableRoles ? [applicableRoles] : ['admin', 'manager', 'staff', 'customer'])
         };
 
         if (discountType === 'special_day_fixed_price') {
@@ -641,7 +644,7 @@ router.post('/vouchers', isAdmin, async (req, res) => {
 });
 
 // Xóa voucher
-router.post('/vouchers/delete/:id', isAdmin, async (req, res) => {
+router.post('/vouchers/delete/:id', isAdminOrManager, async (req, res) => {
     try {
         await Voucher.findByIdAndDelete(req.params.id);
         req.flash('success_msg', 'Đã xóa mã giảm giá thành công.');
@@ -687,7 +690,7 @@ router.get('/dashboard', isAdminOrStaff, async (req, res) => {
             thisYear: { revenue: 0, orders: 0 }
         };
 
-        // Lấy dữ liệu song song
+        // Lấy dữ liệu song song - CHỈ TÍNH ĐƠN HÀNG ĐÃ THANH TOÁN
         const [
             allOrders,
             todayOrders,
@@ -697,11 +700,11 @@ router.get('/dashboard', isAdminOrStaff, async (req, res) => {
             customers,
             products
         ] = await Promise.all([
-            Order.find({ status: { $ne: 'cancelled' } }).populate('items.product', 'name'),
-            Order.find({ createdAt: { $gte: today }, status: { $ne: 'cancelled' } }),
-            Order.find({ createdAt: { $gte: thisWeek }, status: { $ne: 'cancelled' } }),
-            Order.find({ createdAt: { $gte: thisMonth }, status: { $ne: 'cancelled' } }),
-            Order.find({ createdAt: { $gte: thisYear }, status: { $ne: 'cancelled' } }),
+            Order.find({ paymentStatus: 'paid' }).populate('items.product', 'name'),
+            Order.find({ createdAt: { $gte: today }, paymentStatus: 'paid' }),
+            Order.find({ createdAt: { $gte: thisWeek }, paymentStatus: 'paid' }),
+            Order.find({ createdAt: { $gte: thisMonth }, paymentStatus: 'paid' }),
+            Order.find({ createdAt: { $gte: thisYear }, paymentStatus: 'paid' }),
             User.countDocuments({}), // Đếm tất cả user (bao gồm admin, manager, customer)
             Product.countDocuments({})
         ]);
@@ -768,7 +771,7 @@ router.get('/dashboard', isAdminOrStaff, async (req, res) => {
 });
 
 // Quản lý đơn hàng
-router.get('/orders', isAdminOrStaff, async (req, res) => {
+router.get('/orders', isAdminOrManager, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
@@ -829,7 +832,7 @@ router.get('/orders', isAdminOrStaff, async (req, res) => {
         let totalRevenue = 0;
         try {
             const revenueResult = await Order.aggregate([
-                { $match: { status: 'completed' } },
+                { $match: { paymentStatus: 'paid' } },
                 { $group: { _id: null, totalRevenue: { $sum: '$totalPrice' } } }
             ]);
             totalRevenue = revenueResult.length > 0 ? (revenueResult[0].totalRevenue || 0) : 0;
@@ -859,7 +862,7 @@ router.get('/orders', isAdminOrStaff, async (req, res) => {
 });
 
 // Cập nhật trạng thái đơn hàng
-router.post('/orders/:id/status', isAdminOrStaff, async (req, res) => {
+router.post('/orders/:id/status', isAdminOrManager, async (req, res) => {
     try {
         const { status } = req.body;
         
@@ -894,12 +897,12 @@ router.post('/orders/:id/status', isAdminOrStaff, async (req, res) => {
 // ===== PAYMENT MANAGEMENT =====
 
 // Quản lý phương thức thanh toán
-router.get('/payment-methods', isAdmin, async (req, res) => {
+router.get('/payment-methods', isAdminOrManager, async (req, res) => {
     try {
         const paymentMethods = await PaymentMethod.find().sort({ order: 1, createdAt: -1 });
         // Thống kê thanh toán theo phương thức
         const paymentStats = await Order.aggregate([
-            { $match: { status: 'completed' } },
+            { $match: { paymentStatus: 'paid' } },
             { 
                 $group: {
                     _id: '$paymentMethod',
@@ -937,7 +940,7 @@ router.get('/payment-methods', isAdmin, async (req, res) => {
 });
 
 // Thêm phương thức thanh toán
-router.post('/payment-methods', isAdmin, async (req, res) => {
+router.post('/payment-methods', isAdminOrManager, async (req, res) => {
     try {
         const { name, code, description, icon, bankName, accountNumber, accountName, fee, feeType, isActive } = req.body;
         
@@ -974,7 +977,7 @@ router.post('/payment-methods', isAdmin, async (req, res) => {
 });
 
 // Cập nhật phương thức thanh toán
-router.put('/payment-methods/:id', isAdmin, async (req, res) => {
+router.put('/payment-methods/:id', isAdminOrManager, async (req, res) => {
     try {
         const { name, description, icon, bankName, accountNumber, accountName, fee, feeType, isActive } = req.body;
         
@@ -1002,7 +1005,7 @@ router.put('/payment-methods/:id', isAdmin, async (req, res) => {
 });
 
 // Xóa phương thức thanh toán
-router.delete('/payment-methods/:id', isAdmin, async (req, res) => {
+router.delete('/payment-methods/:id', isAdminOrManager, async (req, res) => {
     try {
         await PaymentMethod.findByIdAndDelete(req.params.id);
         req.flash('success_msg', 'Xóa phương thức thanh toán thành công');
@@ -1015,7 +1018,7 @@ router.delete('/payment-methods/:id', isAdmin, async (req, res) => {
 });
 
 // Quản lý thanh toán
-router.get('/payments', isAdmin, async (req, res) => {
+router.get('/payments', isAdminOrManager, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
@@ -1072,7 +1075,7 @@ router.get('/payments', isAdmin, async (req, res) => {
 });
 
 // Cập nhật trạng thái thanh toán
-router.put('/payments/:id/status', isAdmin, async (req, res) => {
+router.put('/payments/:id/status', isAdminOrManager, async (req, res) => {
     try {
         console.log('🔧 PUT /payments/:id/status called');
         console.log('📝 Request body:', req.body);
@@ -1119,7 +1122,7 @@ router.put('/payments/:id/status', isAdmin, async (req, res) => {
 });
 
 // Backup route POST cho payment status update (nếu PUT không hoạt động)
-router.post('/payments/:id/status', isAdmin, async (req, res) => {
+router.post('/payments/:id/status', isAdminOrManager, async (req, res) => {
     try {
         console.log('🔧 POST /payments/:id/status called (backup route)');
         console.log('📝 Request body:', req.body);
@@ -1776,8 +1779,8 @@ router.get('/api/system-users/:id', hasPermission('manage_users'), async (req, r
 
 // ==================== AUDIT LOGS MANAGEMENT ====================
 
-// Trang xem audit logs (hoạt động hệ thống)
-router.get('/audit-logs', hasPermission('manage_users'), async (req, res) => {
+// Trang xem audit logs (hoạt động hệ thống) - Chỉ admin mới xem được
+router.get('/audit-logs', hasPermission('view_audit_logs'), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 50;
@@ -2690,9 +2693,9 @@ router.get('/debug/sales-quick', isAdmin, async (req, res) => {
         // Lấy một vài đơn hàng mẫu
         const sampleOrders = await Order.find().limit(5).select('status totalPrice createdAt items');
         
-        // Tính tổng doanh thu từ đơn hàng completed
+        // Tính tổng doanh thu từ đơn hàng đã thanh toán
         const totalRevenue = await Order.aggregate([
-            { $match: { status: 'completed' } },
+            { $match: { paymentStatus: 'paid' } },
             { $group: { _id: null, total: { $sum: '$totalPrice' } } }
         ]);
         
@@ -3749,7 +3752,7 @@ router.get('/reports/sales', hasPermission('view_reports'), async (req, res) => 
         const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
         const reportEndDate = endDate ? new Date(endDate + 'T23:59:59') : defaultEndDate;
 
-        const match = { createdAt: { $gte: reportStartDate, $lte: reportEndDate }, status: 'completed' };
+        const match = { createdAt: { $gte: reportStartDate, $lte: reportEndDate }, paymentStatus: 'paid' };
 
         const [overview, dailySales, revenueByCategory, toppingRevenue, hourlySales, weeklySales, topDays, customerAnalysis, salesByPaymentMethod] = await Promise.all([
             // 1. Overview

@@ -38,7 +38,7 @@
                                 <input type="number" class="form-control" name="discountValue" value="15" required>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4 mb-3">
                             <label for="applicableCategory" class="form-label">Danh mục áp dụng</label>
                             <select class="form-select" id="applicableCategory" name="applicableCategory">
                                 <option value="">Tất cả</option>
@@ -47,6 +47,37 @@
                                 {{/each}}
                             </select>
                         </div>
+                        
+                        <!-- Phân quyền theo Role -->
+                        <div class="mb-3">
+                            <label class="form-label">Áp dụng cho chức vụ</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="applicableRoles" value="admin" id="roleAdmin" checked>
+                                <label class="form-check-label" for="roleAdmin">
+                                    <i class="fas fa-crown text-danger"></i> Admin
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="applicableRoles" value="manager" id="roleManager" checked>
+                                <label class="form-check-label" for="roleManager">
+                                    <i class="fas fa-user-tie text-warning"></i> Quản lý
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="applicableRoles" value="staff" id="roleStaff" checked>
+                                <label class="form-check-label" for="roleStaff">
+                                    <i class="fas fa-user-tag text-info"></i> Nhân viên
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="applicableRoles" value="customer" id="roleCustomer" checked>
+                                <label class="form-check-label" for="roleCustomer">
+                                    <i class="fas fa-user text-success"></i> Khách hàng
+                                </label>
+                            </div>
+                            <small class="text-muted">Chọn ít nhất 1 chức vụ</small>
+                        </div>
+                        
                         <div class="row">
                             <div class="col-6 mb-3">
                                 <label class="form-label">Giờ bắt đầu (Tùy chọn)</label>
@@ -142,8 +173,18 @@
                                                 <small>Danh mục: {{this.applicableCategory}}</small><br>
                                             {{/if}}
                                             {{#if this.startTime}}
-                                                <small>Giờ: {{this.startTime}}h - {{this.endTime}}h</small>
+                                                <small>Giờ: {{this.startTime}}h - {{this.endTime}}h</small><br>
                                             {{/if}}
+                                        {{/if}}
+                                        {{#if this.applicableRoles}}
+                                            <small><strong>Chức vụ:</strong> 
+                                                {{#each this.applicableRoles}}
+                                                    {{#if (eq this 'admin')}}<i class="fas fa-crown text-danger" title="Admin"></i>{{/if}}
+                                                    {{#if (eq this 'manager')}}<i class="fas fa-user-tie text-warning" title="Quản lý"></i>{{/if}}
+                                                    {{#if (eq this 'staff')}}<i class="fas fa-user-tag text-info" title="Nhân viên"></i>{{/if}}
+                                                    {{#if (eq this 'customer')}}<i class="fas fa-user text-success" title="Khách hàng"></i>{{/if}}
+                                                {{/each}}
+                                            </small>
                                         {{/if}}
                                     </td>
                                     <td>
