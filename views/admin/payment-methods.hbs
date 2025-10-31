@@ -116,7 +116,6 @@
                                     <th>Tên</th>
                                     <th>Mã</th>
                                     <th>Mô tả</th>
-                                    <th>Thông tin ngân hàng</th>
                                     <th>Phí</th>
                                     <th>Trạng thái</th>
                                     <th>Thao tác</th>
@@ -141,17 +140,6 @@
                                     </td>
                                     <td><code>{{this.code}}</code></td>
                                     <td>{{this.description}}</td>
-                                    <td>
-                                        {{#if this.config.bankName}}
-                                        <div>
-                                            <strong>{{this.config.bankName}}</strong><br>
-                                            <small>STK: {{this.config.accountNumber}}</small><br>
-                                            <small>Tên TK: {{this.config.accountName}}</small>
-                                        </div>
-                                        {{else}}
-                                        <span class="text-muted">Chưa cấu hình</span>
-                                        {{/if}}
-                                    </td>
                                     <td>
                                         {{#if this.config.fee}}
                                         {{formatPrice this.config.fee}}{{#if (eq this.config.feeType 'percent')}}%{{/if}}
@@ -231,28 +219,7 @@
                     </div>
                     
                     <hr>
-                    <h6>Thông tin ngân hàng (nếu có)</h6>
-                    
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Tên ngân hàng</label>
-                                <input type="text" class="form-control" name="bankName">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Số tài khoản</label>
-                                <input type="text" class="form-control" name="accountNumber">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Tên tài khoản</label>
-                                <input type="text" class="form-control" name="accountName">
-                            </div>
-                        </div>
-                    </div>
+                    <h6>Cấu hình phí giao dịch</h6>
                     
                     <div class="row">
                         <div class="col-md-6">

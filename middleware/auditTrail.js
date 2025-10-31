@@ -1,12 +1,23 @@
 const AuditLog = require('../models/AuditLog');
 
-// Helper function to get client IP
+// Helper function to get client IP (compatible with proxy/load balancer)
 const getClientIP = (req) => {
-    return req.ip || 
-           req.connection.remoteAddress || 
-           req.socket.remoteAddress ||
-           (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
-           '127.0.0.1';
+    // Ưu tiên các headers từ proxy/load balancer (cho production deployment)
+    let ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+             req.headers['x-real-ip'] ||
+             req.headers['x-client-ip'] ||
+             req.connection.remoteAddress || 
+             req.socket.remoteAddress ||
+             (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
+             req.ip ||
+             '127.0.0.1';
+    
+    // Chuyển đổi IPv6 localhost thành IPv4 để dễ đọc
+    if (ip === '::1' || ip === '::ffff:127.0.0.1') {
+        ip = '127.0.0.1';
+    }
+    
+    return ip;
 };
 
 // Helper function to extract relevant data from request body

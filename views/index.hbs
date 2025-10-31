@@ -58,18 +58,18 @@
 <section class="featured-products mb-5 container">
   <h2 class="text-center mb-4">{{featuredTitle}}</h2>
   {{#if products.length}}
-    <div class="row">
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 g-4">
       {{#each products}}
-      <div class="col-sm-6 col-md-4 mb-4">
-        <div class="card h-100 shadow-sm">
-          <div class="ratio ratio-16x9 bg-light">
-            <img src="{{image}}" class="card-img-top object-fit-contain p-2" alt="{{name}}"
+      <div class="col">
+        <div class="card h-100 shadow-sm product-card">
+          <div class="ratio ratio-4x3 bg-light">
+            <img src="{{image}}" class="card-img-top object-fit-cover p-2" alt="{{name}}"
                  loading="lazy" onerror="this.src='/images/placeholder.png'">
           </div>
-          <div class="card-body d-flex flex-column">
-            <h5 class="card-title mb-2">{{name}}</h5>
-            <p class="card-text text-muted flex-grow-1 truncate-2-lines">{{description}}</p>
-            <p class="card-text fw-bold mb-3">
+          <div class="card-body d-flex flex-column p-3">
+            <h6 class="card-title mb-2 fw-bold text-truncate">{{name}}</h6>
+            <p class="card-text text-muted small mb-2 truncate-2-lines">{{description}}</p>
+            <p class="card-text fw-bold text-primary mb-2">
               {{#if price}}
                 {{formatPrice price}}
               {{else if sizes}}
@@ -79,11 +79,11 @@
                   Từ {{formatPrice sizes.[0].price}}
                 {{/if}}
               {{else}}
-                Liên hệ để biết giá
+                Liên hệ
               {{/if}}
             </p>
             <div class="mt-auto">
-              <a href="/products#product-{{_id}}" class="btn btn-primary w-100">Xem thêm</a>
+              <a href="/products#product-{{_id}}" class="btn btn-primary btn-sm w-100">Xem thêm</a>
             </div>
           </div>
         </div>
@@ -111,7 +111,7 @@
     top: 50%;
     transform: translateY(-50%);
     bottom: auto;
-    pointer-events: none; /* tránh che controls */
+    pointer-events: none;
   }
 
   .carousel-caption .btn { pointer-events: auto; }
@@ -122,12 +122,50 @@
   @media (max-width: 767.98px) {
     .hero-slide-img { height: 300px; }
   }
+
+  /* Product Cards */
+  .product-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15) !important;
+  }
+
+  .product-card .card-body {
+    min-height: 180px;
+  }
+
+  .product-card .card-title {
+    font-size: 0.95rem;
+    line-height: 1.3;
+    height: 2.6em;
+    overflow: hidden;
+  }
+
+  .product-card .card-text.small {
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
   .truncate-2-lines {
     display: -webkit-box;
-    -webkit-line-clamp: 2;   /* số dòng muốn hiển thị */
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-height: 2.8em;
+  }
+
+  .product-card img {
+    transition: transform 0.3s ease;
+  }
+
+  .product-card:hover img {
+    transform: scale(1.05);
   }
 
   .carousel-control-prev,
@@ -152,4 +190,19 @@
     height: 40px;
   }
 
+  /* Responsive adjustments */
+  @media (max-width: 991.98px) {
+    .product-card .card-body {
+      min-height: 160px;
+    }
+  }
+
+  @media (max-width: 767.98px) {
+    .product-card .card-body {
+      min-height: 140px;
+    }
+    .product-card .card-title {
+      font-size: 0.9rem;
+    }
+  }
 </style>

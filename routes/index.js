@@ -8,14 +8,12 @@ const Order = require('../models/Order');
 // Home Page
 router.get('/', async (req, res) => {
     try {
-        const date = new Date();
-        const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-        const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
+        // Lấy sản phẩm bán chạy từ tất cả thời gian (không giới hạn tháng)
         const bestsellingProducts = await Order.aggregate([
             {
                 $match: {
-                    createdAt: { $gte: firstDayOfMonth, $lte: lastDayOfMonth }
+                    status: { $nin: ['cancelled'] }, // Loại bỏ đơn hủy
+                    paymentStatus: 'paid' // Chỉ tính đơn đã thanh toán
                 }
             },
             {
@@ -24,7 +22,8 @@ router.get('/', async (req, res) => {
             {
                 $group: {
                     _id: '$items.product',
-                    totalQuantity: { $sum: '$items.quantity' }
+                    totalQuantity: { $sum: '$items.quantity' },
+                    totalOrders: { $sum: 1 }
                 }
             },
             {
@@ -43,14 +42,27 @@ router.get('/', async (req, res) => {
             },
             {
                 $unwind: '$product'
+            },
+            {
+                $match: {
+                    'product.category': { $ne: 'Topping' }, // Loại bỏ topping
+                    'product.isAvailable': true // Chỉ lấy sản phẩm còn bán
+                }
             }
         ]);
 
-        let products = bestsellingProducts.map(product => product.product);
+        let products = bestsellingProducts.map(item => item.product);
+        let featuredTitle = 'Sản phẩm bán chạy nhất';
         
-        // Nếu không có sản phẩm bán chạy trong tháng, lấy 5 sản phẩm ngẫu nhiên
+        // Nếu không có sản phẩm bán chạy, lấy 5 sản phẩm mới nhất
         if (products.length === 0) {
-            products = await Product.find({ category: { $ne: 'Topping' } }).limit(5);
+            products = await Product.find({ 
+                category: { $ne: 'Topping' },
+                isAvailable: true 
+            })
+            .sort({ createdAt: -1 })
+            .limit(5);
+            featuredTitle = 'Sản phẩm nổi bật';
         }
         
         // Nếu vẫn không đủ 5 sản phẩm, lấy thêm sản phẩm khác
@@ -58,19 +70,23 @@ router.get('/', async (req, res) => {
             const existingIds = products.map(p => p._id);
             const additionalProducts = await Product.find({ 
                 _id: { $nin: existingIds },
-                category: { $ne: 'Topping' }
-            }).limit(5 - products.length);
+                category: { $ne: 'Topping' },
+                isAvailable: true
+            })
+            .sort({ createdAt: -1 })
+            .limit(5 - products.length);
             products = [...products, ...additionalProducts];
         }
+
+        console.log(`✅ Homepage: Showing ${products.length} products - ${featuredTitle}`);
 
         res.render('index', {
             user: req.user,
             products,
-            featuredTitle: products.length > 0 && bestsellingProducts.length > 0 ? 
-                'Sản phẩm bán chạy nhất tháng này' : 'Sản phẩm nổi bật'
+            featuredTitle
         });
     } catch (err) {
-        console.error('Home page error:', err);
+        console.error('❌ Home page error:', err);
         res.render('error');
     }
 });

@@ -2134,6 +2134,13 @@ router.get('/reports/customers', async (req, res) => {
                     activeCustomers: { $sum: { $cond: [{ $ne: ['$lastLogin', null] }, 1, 0] } },
                     avgAge: { $avg: '$age' }
                 }
+            },
+            {
+                $project: {
+                    totalCustomers: 1,
+                    activeCustomers: 1,
+                    avgAge: { $round: ['$avgAge', 0] }
+                }
             }
         ]);
 
@@ -2173,6 +2180,11 @@ router.get('/reports/customers', async (req, res) => {
             },
             {
                 $group: { _id: null, avgAge: { $avg: '$age' } }
+            },
+            {
+                $project: {
+                    avgAge: { $round: ['$avgAge', 0] }
+                }
             }
         ]);
         
