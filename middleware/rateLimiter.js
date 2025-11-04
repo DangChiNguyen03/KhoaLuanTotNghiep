@@ -11,7 +11,14 @@ function getClientIP(req) {
              req.connection?.remoteAddress ||
              req.socket?.remoteAddress ||
              '127.0.0.1';
-    if (ip === '::1' || ip === '::ffff:127.0.0.1') ip = '127.0.0.1';
+    
+    // Chuyển đổi IPv6 thành IPv4
+    if (ip === '::1') {
+        ip = '127.0.0.1';
+    } else if (ip && ip.startsWith('::ffff:')) {
+        ip = ip.substring(7);
+    }
+    
     return ip;
 }
 
