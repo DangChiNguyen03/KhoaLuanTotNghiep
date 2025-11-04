@@ -246,10 +246,10 @@
                     <div class="mt-4">
                         <div class="progress" style="height: 30px;">
                             <div class="progress-bar bg-success" role="progressbar" style="width: {{retention.returningRate}}%">
-                                Khách quay lại: {{truncate retention.returningRate 4}}%
+                                Khách quay lại: {{round retention.returningRate 2}}%
                             </div>
                             <div class="progress-bar bg-warning" role="progressbar" style="width: {{retention.newCustomersRate}}%">
-                                Khách mới: {{truncate retention.newCustomersRate 4}}%
+                                Khách mới: {{round retention.newCustomersRate 2}}%
                             </div>
                         </div>
                     </div>

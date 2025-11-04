@@ -82,6 +82,22 @@ const UserSchema = new mongoose.Schema({
     lockUntil: {
         type: Date
     },
+    isLocked: {
+        type: Boolean,
+        default: false
+    },
+    lockedReason: {
+        type: String,
+        enum: ['failed_login', 'admin_action', 'security'],
+        default: undefined
+    },
+    lockedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    lockedAt: {
+        type: Date
+    },
     cart: [{
         product: {
             type: mongoose.Schema.Types.ObjectId,
@@ -114,5 +130,63 @@ const UserSchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
+// Virtual để kiểm tra tài khoản có bị khóa không
+UserSchema.virtual('accountLocked').get(function() {
+    return this.isLocked || (this.lockUntil && this.lockUntil > Date.now());
+});
+
+// Method để tăng số lần đăng nhập sai
+UserSchema.methods.incLoginAttempts = function() {
+    // Nếu có lockUntil và đã hết hạn, reset
+    if (this.lockUntil && this.lockUntil < Date.now()) {
+        return this.updateOne({
+            $set: { loginAttempts: 1 },
+            $unset: { lockUntil: 1, isLocked: 1, lockedReason: 1, lockedAt: 1 }
+        });
+    }
+    
+    // Tăng số lần thử
+    const updates = { $inc: { loginAttempts: 1 } };
+    
+    // Khóa tài khoản nếu đạt 5 lần
+    const maxAttempts = 5;
+    const isLocked = this.loginAttempts + 1 >= maxAttempts;
+    
+    if (isLocked) {
+        updates.$set = { 
+            isLocked: true,
+            lockedReason: 'failed_login',
+            lockedAt: Date.now(),
+            lockUntil: Date.now() + 24 * 60 * 60 * 1000 // Khóa 24 giờ
+        };
+    }
+    
+    return this.updateOne(updates);
+};
+
+// Method để reset số lần đăng nhập sai
+UserSchema.methods.resetLoginAttempts = function() {
+    return this.updateOne({
+        $set: { loginAttempts: 0 },
+        $unset: { lockUntil: 1 }
+    });
+};
+
+// Method để mở khóa tài khoản (chỉ admin/manager)
+UserSchema.methods.unlockAccount = function(unlockedBy) {
+    return this.updateOne({
+        $set: { 
+            isLocked: false,
+            loginAttempts: 0
+        },
+        $unset: { 
+            lockUntil: 1, 
+            lockedReason: 1, 
+            lockedBy: 1,
+            lockedAt: 1 
+        }
+    });
+};
 
 module.exports = mongoose.model('User', UserSchema);

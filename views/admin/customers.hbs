@@ -122,6 +122,7 @@
                                     <th>Địa chỉ</th>
                                     <th>Số điện thoại</th>
                                     <th>Vai trò</th>
+                                    <th>Trạng thái</th>
                                     <th>Ngày sinh</th>
                                     <th>Ngày đăng ký</th>
                                     <th>Thao tác</th>
@@ -147,6 +148,20 @@
                                              <span class="badge bg-info">Khách hàng</span>
                                          {{/if}}
                                      </td>
+                                     <td>
+                                         {{#if this.isLocked}}
+                                             <span class="badge bg-danger">
+                                                 <i class="fas fa-lock"></i> Đã khóa
+                                             </span>
+                                             {{#if this.loginAttempts}}
+                                                 <br><small class="text-muted">{{this.loginAttempts}} lần sai</small>
+                                             {{/if}}
+                                         {{else}}
+                                             <span class="badge bg-success">
+                                                 <i class="fas fa-check-circle"></i> Hoạt động
+                                             </span>
+                                         {{/if}}
+                                     </td>
                                      <td>{{#if this.birthday}}{{formatDate this.birthday}}{{else}}<span class="text-muted">Chưa cập nhật</span>{{/if}}</td>
                                      <td>{{formatDate this.date}}</td>
                                     <td>
@@ -154,6 +169,13 @@
                                             <a href="/admin/customers/{{this._id}}" class="btn btn-sm btn-info" title="Xem chi tiết">
                                                 <i class="fas fa-eye"></i>
                                             </a>
+                                            {{#if this.isLocked}}
+                                                <form method="POST" action="/admin/customers/{{this._id}}/unlock" style="display: inline;">
+                                                    <button type="submit" class="btn btn-sm btn-warning" title="Mở khóa tài khoản" onclick="return confirm('Bạn có chắc muốn mở khóa tài khoản {{this.email}}?')">
+                                                        <i class="fas fa-unlock"></i>
+                                                    </button>
+                                                </form>
+                                            {{/if}}
                                             <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('{{this._id}}', '{{this.name}}')" title="Xóa khách hàng">
                                                 <i class="fas fa-trash"></i>
                                             </button>

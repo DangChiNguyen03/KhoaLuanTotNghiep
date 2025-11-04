@@ -25,7 +25,7 @@ const {
 } = require('../middleware/auditTrail');
 
 // Login logs route - MUST be before root route - Chỉ admin mới xem được
-router.get('/login-logs', hasPermission('view_login_logs'), async (req, res) => {
+router.get('/login-logs', isAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 20;
@@ -572,6 +572,49 @@ router.post('/customers/:id/delete', isAdmin, async (req, res) => {
     } catch (err) {
         console.error('Lỗi khi xóa khách hàng (POST):', err);
         req.flash('error_msg', 'Lỗi khi xóa khách hàng');
+        res.redirect('/admin/customers');
+    }
+});
+
+// Mở khóa tài khoản (Admin/Manager only)
+router.post('/customers/:id/unlock', isAdminOrManager, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        
+        if (!user) {
+            req.flash('error_msg', 'Không tìm thấy người dùng');
+            return res.redirect('/admin/customers');
+        }
+        
+        if (!user.isLocked) {
+            req.flash('error_msg', 'Tài khoản này không bị khóa');
+            return res.redirect('/admin/customers');
+        }
+        
+        // Mở khóa tài khoản
+        await user.unlockAccount(req.user._id);
+        
+        // Log audit
+        const AuditLog = require('../models/AuditLog');
+        await AuditLog.create({
+            user: req.user._id,
+            action: 'unlock_account',
+            targetModel: 'User',
+            targetId: user._id,
+            details: {
+                targetUser: user.email,
+                previousAttempts: user.loginAttempts,
+                unlockedBy: req.user.email
+            },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
+        });
+        
+        req.flash('success_msg', `Đã mở khóa tài khoản ${user.email} thành công`);
+        res.redirect('/admin/customers');
+    } catch (err) {
+        console.error('Lỗi khi mở khóa tài khoản:', err);
+        req.flash('error_msg', 'Lỗi khi mở khóa tài khoản');
         res.redirect('/admin/customers');
     }
 });
@@ -1780,7 +1823,7 @@ router.get('/api/system-users/:id', hasPermission('manage_users'), async (req, r
 // ==================== AUDIT LOGS MANAGEMENT ====================
 
 // Trang xem audit logs (hoạt động hệ thống) - Chỉ admin mới xem được
-router.get('/audit-logs', hasPermission('view_audit_logs'), async (req, res) => {
+router.get('/audit-logs', isAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 50;
@@ -1845,7 +1888,7 @@ router.get('/audit-logs', hasPermission('view_audit_logs'), async (req, res) => 
 });
 
 // Export CSV cho audit logs
-router.get('/audit-logs/export', hasPermission('manage_users'), async (req, res) => {
+router.get('/audit-logs/export', isAdmin, async (req, res) => {
     try {
         const filters = {};
         if (req.query.user) filters.user = req.query.user;

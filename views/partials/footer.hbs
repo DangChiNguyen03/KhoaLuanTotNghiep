@@ -1,13 +1,40 @@
+<style>
+    .social-links a {
+        transition: all 0.3s ease;
+        display: inline-block;
+    }
+    
+    .social-links a:hover {
+        transform: translateY(-3px) scale(1.1);
+        color: #667eea !important;
+    }
+    
+    .social-links a:hover i {
+        animation: bounce 0.5s ease;
+    }
+    
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+</style>
+
 <footer class="bg-dark text-light py-4 mt-5" style="width: 100%; padding-left: 10%">
     <div class="container-fluid px-4">
         <div class="row">
             <div class="col-md-4">
-                <h5>YOLOBrew</h5>
+                <h5>🧋 YOLOBrew</h5>
                 <p>Thương hiệu đồ uống cho giới trẻ ngon nhất Việt Nam</p>
-                <div class="social-links">
-                    <a href="#" class="text-light me-3"><i class="fab fa-facebook"></i></a>
-                    <a href="#" class="text-light me-3"><i class="fab fa-instagram"></i></a>
-                    <a href="#" class="text-light"><i class="fab fa-tiktok"></i></a>
+                <div class="social-links" style="font-size: 1.5rem;">
+                    <a href="https://facebook.com" target="_blank" class="text-light me-3" title="Facebook">
+                        <i class="fab fa-facebook-f"></i>
+                    </a>
+                    <a href="https://instagram.com" target="_blank" class="text-light me-3" title="Instagram">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://tiktok.com" target="_blank" class="text-light" title="TikTok">
+                        <i class="fab fa-tiktok"></i>
+                    </a>
                 </div>
             </div>
             <div class="col-md-4">

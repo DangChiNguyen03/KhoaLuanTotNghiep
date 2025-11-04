@@ -4,6 +4,8 @@ const methodOverride = require("method-override");
 const exphbs = require("express-handlebars");
 const mongoose = require("mongoose");
 const session = require("express-session");
+const MongoStore = require("connect-mongo");
+const compression = require("compression");
 const passport = require("passport");
 const flash = require("connect-flash");
 const path = require("path");
@@ -24,15 +26,19 @@ const app = express();
 // Trust proxy để lấy đúng IP address từ headers
 app.set("trust proxy", true);
 
-// Kết nối MongoDB
+// Kết nối MongoDB với connection pooling
 mongoose
   .connect("mongodb://127.0.0.1:27017/bubble-tea-shop", {
     useNewUrlParser: true,
     useUnifiedTopology: true,
+    maxPoolSize: 10, // Tối đa 10 connections
+    minPoolSize: 2,  // Tối thiểu 2 connections
+    socketTimeoutMS: 45000,
+    serverSelectionTimeoutMS: 5000,
   })
-  .then(() => console.log("MongoDB Connected Successfully"))
+  .then(() => console.log("✅ MongoDB Connected Successfully with pooling"))
   .catch((err) => {
-    console.error("MongoDB Connection Error:", err);
+    console.error("❌ MongoDB Connection Error:", err);
     process.exit(1);
   });
 
@@ -205,18 +211,34 @@ console.log("📁 Views directory:", path.join(__dirname, "views"));
 console.log("📁 Current directory:", __dirname);
 
 // Middleware
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
-app.use(express.json());
+app.use(compression()); // Nén response để giảm bandwidth
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.static(path.join(__dirname, "public"), {
+  maxAge: '1d', // Cache static files 1 ngày
+  etag: true
+}));
+app.use(express.json({ limit: '10mb' }));
 app.use(methodOverride("_method"));
 app.use(logger);
 
-// Session
+// Session với MongoStore (production-ready)
 app.use(
   session({
-    secret: "secret",
-    resave: true,
-    saveUninitialized: true,
+    secret: process.env.SESSION_SECRET || "secret",
+    resave: false, // Không save session nếu không thay đổi
+    saveUninitialized: false, // Không tạo session cho user chưa login
+    store: MongoStore.create({
+      mongoUrl: "mongodb://127.0.0.1:27017/bubble-tea-shop",
+      touchAfter: 24 * 3600, // Chỉ update session 1 lần/ngày nếu không thay đổi
+      crypto: {
+        secret: process.env.SESSION_SECRET || "secret"
+      }
+    }),
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 ngày
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production' // HTTPS trong production
+    }
   })
 );
 

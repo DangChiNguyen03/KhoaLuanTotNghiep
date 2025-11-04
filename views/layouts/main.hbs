@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YOLOBrew</title>
+    <title>YOLOBrew - Trà Sữa Ngon</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧋</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧋</text></svg>">
+    
     <!-- Preload Font Awesome for better performance -->
     <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
     <!-- Bootstrap 5.3 -->
@@ -18,6 +23,24 @@
     body{
         background: linear-gradient(to bottom, #fff1eb , #ace0f9);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    /* Logo Animation */
+    .navbar-brand span:first-child {
+        display: inline-block;
+        transition: transform 0.3s ease;
+    }
+    
+    .navbar-brand:hover span:first-child {
+        transform: rotate(15deg) scale(1.1);
+    }
+    
+    .navbar-brand {
+        transition: all 0.3s ease;
+    }
+    
+    .navbar-brand:hover {
+        transform: translateY(-2px);
     }
     
     /* Font Awesome fallback */
@@ -42,7 +65,10 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/">YOLOBrew</a>
+            <a class="navbar-brand d-flex align-items-center" href="/" style="font-size: 1.5rem; font-weight: bold;">
+                <span style="font-size: 2rem; margin-right: 8px;">🧋</span>
+                <span>YOLOBrew</span>
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
