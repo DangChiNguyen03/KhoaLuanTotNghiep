@@ -17,6 +17,12 @@ function getClientIP(req) {
         ip = '127.0.0.1';
     } else if (ip && ip.startsWith('::ffff:')) {
         ip = ip.substring(7);
+    } else if (ip && ip.includes(':') && ip.length > 20) {
+        // IPv6 thật: rút gọn để dễ đọc
+        const parts = ip.split(':');
+        if (parts.length > 4) {
+            ip = `${parts[0]}:${parts[1]}:...${parts[parts.length-1]}`;
+        }
     }
     
     return ip;

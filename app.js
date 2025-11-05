@@ -190,9 +190,6 @@ const hbs = exphbs.create({
     },
 
     // Math Helpers for payment statistics
-    add: function (a, b) {
-      return (a || 0) + (b || 0);
-    },
     percentage: function (part, total) {
       if (!total || total === 0) return 0;
       return Math.round(((part || 0) / total) * 100);
@@ -207,8 +204,6 @@ const hbs = exphbs.create({
 app.engine(".hbs", hbs.engine);
 app.set("view engine", ".hbs");
 app.set("views", path.join(__dirname, "views"));
-console.log("📁 Views directory:", path.join(__dirname, "views"));
-console.log("📁 Current directory:", __dirname);
 
 // Middleware
 app.use(compression()); // Nén response để giảm bandwidth
@@ -253,6 +248,10 @@ app.use(flash());
 // Permissions middleware for templates
 app.use(addPermissionsToLocals);
 
+// Welcome notification middleware
+const welcomeNotification = require('./middleware/welcomeNotification');
+app.use(welcomeNotification);
+
 // ✅ Gán các biến global cho views
 app.use((req, res, next) => {
   res.locals.success_msg = req.flash("success_msg");
@@ -286,10 +285,11 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0'; // Listen trên tất cả IPv4 interfaces
 
 // Gracefully handle port conflicts
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`Server running on ${HOST}:${PORT}`);
   console.log(`Visit http://localhost:${PORT}`);
   
   // Khởi động auto cleanup sau khi server ready

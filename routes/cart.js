@@ -578,6 +578,7 @@ router.post("/checkout", ensureAuthenticated, async (req, res) => {
 router.get('/available-vouchers', isAuthenticated, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate('cart.product');
+    const Order = require('../models/Order');
     
     if (!user || !user.cart.length) {
       return res.json({ vouchers: [] });
@@ -592,11 +593,38 @@ router.get('/available-vouchers', isAuthenticated, async (req, res) => {
       let applicableItems = 0;
       
       console.log(`🎫 Validating voucher: ${voucher.code}`);
-      console.log(`🎫 Special Day: ${voucher.specialDay}, Applicable Size: ${voucher.applicableSize}, Category: ${voucher.applicableCategory}`);
 
-      // Check special day conditions (e.g., Friday only)
+      // ✅ CHECK 1: Kiểm tra role (chức vụ)
+      if (isApplicable && voucher.applicableRoles && voucher.applicableRoles.length > 0) {
+        if (!voucher.applicableRoles.includes(user.role)) {
+          const roleNames = {
+            admin: 'Admin',
+            manager: 'Quản lý',
+            staff: 'Nhân viên',
+            customer: 'Khách hàng'
+          };
+          const allowedRoles = voucher.applicableRoles.map(r => roleNames[r] || r).join(', ');
+          reason = `Chỉ dành cho: ${allowedRoles}`;
+          isApplicable = false;
+        }
+      }
+
+      // ✅ CHECK 2: Kiểm tra MANGUOIMOI - chỉ dùng 1 lần cả đời
+      if (isApplicable && voucher.code === 'MANGUOIMOI') {
+        const hasUsedBefore = await Order.findOne({
+          user: user._id,
+          'voucher.code': 'MANGUOIMOI'
+        });
+        
+        if (hasUsedBefore) {
+          reason = 'Bạn đã sử dụng mã này rồi';
+          isApplicable = false;
+        }
+      }
+
+      // ✅ CHECK 3: Kiểm tra ngày đặc biệt (special day)
       if (isApplicable && voucher.specialDay !== null) {
-        const currentDay = new Date().getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+        const currentDay = new Date().getDay();
         if (currentDay !== voucher.specialDay) {
           const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
           reason = `Chỉ áp dụng vào ${dayNames[voucher.specialDay]}`;
@@ -604,7 +632,7 @@ router.get('/available-vouchers', isAuthenticated, async (req, res) => {
         }
       }
 
-      // Check time-based conditions (Happy Hour)
+      // ✅ CHECK 4: Kiểm tra khung giờ (time-based)
       if (isApplicable && voucher.startTime !== null && voucher.endTime !== null) {
         const currentHour = new Date().getHours();
         if (currentHour < voucher.startTime || currentHour >= voucher.endTime) {
@@ -613,17 +641,15 @@ router.get('/available-vouchers', isAuthenticated, async (req, res) => {
         }
       }
 
-      // Check category and size conditions
+      // ✅ CHECK 5: Kiểm tra danh mục và size
       if (isApplicable && voucher.applicableCategory) {
         for (const item of user.cart) {
           if (item.product.category === voucher.applicableCategory) {
-            // If voucher has size requirement, check size match
             if (voucher.applicableSize) {
               if (item.size === voucher.applicableSize) {
                 applicableItems++;
               }
             } else {
-              // No size requirement, just category match
               applicableItems++;
             }
           }
@@ -642,20 +668,23 @@ router.get('/available-vouchers', isAuthenticated, async (req, res) => {
 
       console.log(`🎫 Voucher ${voucher.code} - Applicable: ${isApplicable}, Reason: ${reason || 'Valid'}`);
 
-      availableVouchers.push({
-        code: voucher.code,
-        description: voucher.description,
-        discountType: voucher.discountType,
-        discountValue: voucher.discountValue,
-        fixedPrice: voucher.fixedPrice,
-        applicableCategory: voucher.applicableCategory,
-        startTime: voucher.startTime,
-        endTime: voucher.endTime,
-        isApplicable,
-        reason,
-        applicableItems,
-        potentialDiscount: 0
-      });
+      // ✅ CHỈ THÊM VOUCHER KHẢ DỤNG VÀO DANH SÁCH
+      if (isApplicable) {
+        availableVouchers.push({
+          code: voucher.code,
+          description: voucher.description,
+          discountType: voucher.discountType,
+          discountValue: voucher.discountValue,
+          fixedPrice: voucher.fixedPrice,
+          applicableCategory: voucher.applicableCategory,
+          startTime: voucher.startTime,
+          endTime: voucher.endTime,
+          isApplicable: true,
+          reason: '',
+          applicableItems,
+          potentialDiscount: 0
+        });
+      }
     }
     
     res.json({ vouchers: availableVouchers });

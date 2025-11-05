@@ -128,6 +128,10 @@ const UserSchema = new mongoose.Schema({
     date: {
         type: Date,
         default: Date.now
+    },
+    hasSeenWelcome: {
+        type: Boolean,
+        default: false
     }
 });
 

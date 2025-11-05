@@ -1,0 +1,205 @@
+{{#if welcomeMessage}}
+<style>
+    .welcome-toast {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 450px;
+        animation: slideInRight 0.5s ease-out;
+    }
+    
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    .voucher-badge-new {
+        display: inline-block;
+        padding: 8px 16px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 25px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+        animation: pulse 2s infinite;
+    }
+    
+    .voucher-badge-new:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+    }
+    
+    @keyframes pulse {
+        0%, 100% { 
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% { 
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+    }
+</style>
+
+<div class="welcome-toast" id="welcomeToast">
+    <div class="toast show" role="alert">
+        {{#if welcomeMessage.isNewUser}}
+        <!-- THÔNG BÁO USER MỚI -->
+        <div class="toast-header text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <strong class="me-auto">🎉 Chào mừng bạn mới!</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            <p class="mb-2">
+                Xin chào <strong>{{welcomeMessage.userName}}</strong>! 🎊<br>
+                Cảm ơn bạn đã đăng ký tài khoản tại <strong>YOLOBrew</strong>!
+            </p>
+            
+            {{#if welcomeMessage.voucherCode}}
+            <!-- Customer mới: Có voucher -->
+            <hr class="my-2">
+            <div class="text-center">
+                <p class="mb-2"><strong>🎁 Quà tặng đặc biệt dành cho bạn:</strong></p>
+                <div class="mb-2">
+                    <span class="voucher-badge-new" 
+                          onclick="copyVoucher('{{welcomeMessage.voucherCode}}')" 
+                          title="Click để copy mã">
+                        {{welcomeMessage.voucherCode}} -{{welcomeMessage.discount}}
+                    </span>
+                </div>
+                <p class="mb-0">
+                    <small class="text-muted">
+                        ✨ Giảm {{welcomeMessage.discount}} cho toàn bộ sản phẩm<br>
+                        👆 Click vào mã để copy
+                    </small>
+                </p>
+            </div>
+            {{else}}
+            <!-- Admin/Staff/Manager mới: Không có voucher -->
+            <hr class="my-2">
+            <div class="text-center">
+                <p class="mb-0">
+                    <i class="fas fa-user-shield text-primary"></i> 
+                    <strong>Chúc bạn làm việc hiệu quả!</strong>
+                </p>
+            </div>
+            {{/if}}
+            
+            <!-- VOUCHER ĐANG HOẠT ĐỘNG (User mới) -->
+            {{#if welcomeMessage.activeVouchers.length}}
+            <hr class="my-2">
+            <div>
+                <p class="mb-2"><strong>🔥 Ưu đãi đang hoạt động:</strong></p>
+                <div class="d-flex flex-wrap gap-1">
+                    {{#each welcomeMessage.activeVouchers}}
+                        <span class="badge bg-warning text-dark" 
+                              onclick="copyVoucher('{{this.code}}')" 
+                              style="cursor: pointer; font-size: 0.85rem;"
+                              title="Click để copy mã {{this.code}}">
+                            {{this.code}}
+                            {{#if (eq this.discountType 'percentage')}}
+                                -{{this.discountValue}}%
+                            {{else if (eq this.discountType 'fixed_amount')}}
+                                -{{this.discountValue}}đ
+                            {{/if}}
+                            {{#if this.startTime}}
+                                ({{this.startTime}}h-{{this.endTime}}h)
+                            {{/if}}
+                        </span>
+                    {{/each}}
+                </div>
+                <p class="mb-0 mt-2"><small class="text-muted">👆 Click vào mã để copy</small></p>
+            </div>
+            {{/if}}
+        </div>
+        {{else if welcomeMessage.isReturningUser}}
+        <!-- THÔNG BÁO USER CŨ -->
+        <div class="toast-header text-white" style="background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);">
+            <strong class="me-auto">👋 Chào mừng trở lại!</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            <p class="mb-2">
+                Xin chào <strong>{{welcomeMessage.userName}}</strong>! 😊<br>
+                Rất vui được gặp lại bạn tại <strong>YOLOBrew</strong>!
+            </p>
+            
+            <hr class="my-2">
+            
+            <div class="text-center">
+                <p class="mb-0">
+                    <i class="fas fa-heart text-danger"></i> 
+                    <strong>Cảm ơn bạn đã quay lại!</strong>
+                </p>
+            </div>
+            
+            <!-- VOUCHER ĐANG HOẠT ĐỘNG (User cũ) -->
+            {{#if welcomeMessage.activeVouchers.length}}
+            <hr class="my-2">
+            <div>
+                <p class="mb-2"><strong>🔥 Ưu đãi đang hoạt động:</strong></p>
+                <div class="d-flex flex-wrap gap-1">
+                    {{#each welcomeMessage.activeVouchers}}
+                        <span class="badge bg-warning text-dark" 
+                              onclick="copyVoucher('{{this.code}}')" 
+                              style="cursor: pointer; font-size: 0.85rem;"
+                              title="Click để copy mã {{this.code}}">
+                            {{this.code}}
+                            {{#if (eq this.discountType 'percentage')}}
+                                -{{this.discountValue}}%
+                            {{else if (eq this.discountType 'fixed_amount')}}
+                                -{{this.discountValue}}đ
+                            {{/if}}
+                            {{#if this.startTime}}
+                                ({{this.startTime}}h-{{this.endTime}}h)
+                            {{/if}}
+                        </span>
+                    {{/each}}
+                </div>
+                <p class="mb-0 mt-2"><small class="text-muted">👆 Click vào mã để copy</small></p>
+            </div>
+            {{/if}}
+        </div>
+        {{/if}}
+    </div>
+</div>
+
+<script>
+    // Auto hide sau 20 giây (có voucher) hoặc 10 giây (không có voucher)
+    const hasVouchers = {{#if welcomeMessage.activeVouchers.length}}true{{else}}false{{/if}};
+    const hideDelay = hasVouchers ? 20000 : ({{#if welcomeMessage.isNewUser}}15000{{else}}10000{{/if}});
+    
+    setTimeout(() => {
+        const toast = document.getElementById('welcomeToast');
+        if (toast) {
+            toast.style.animation = 'slideInRight 0.5s ease-out reverse';
+            setTimeout(() => toast.remove(), 500);
+        }
+    }, hideDelay);
+    
+    // Copy voucher code
+    function copyVoucher(code) {
+        navigator.clipboard.writeText(code).then(() => {
+            // Tạo tooltip tạm thời
+            const tooltip = document.createElement('div');
+            tooltip.innerHTML = '<i class="fas fa-check-circle"></i> Đã copy mã <strong>' + code + '</strong>!';
+            tooltip.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#28a745;color:white;padding:15px 25px;border-radius:10px;z-index:10000;font-size:16px;box-shadow:0 4px 15px rgba(0,0,0,0.3);';
+            document.body.appendChild(tooltip);
+            setTimeout(() => tooltip.remove(), 2000);
+        }).catch(err => {
+            console.error('Copy failed:', err);
+            alert('Đã copy mã: ' + code);
+        });
+    }
+</script>
+{{/if}}

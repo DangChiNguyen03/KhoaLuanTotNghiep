@@ -44,6 +44,13 @@ function getClientIP(req) {
     } else if (ip && ip.startsWith('::ffff:')) {
         // IPv6-mapped IPv4: ::ffff:192.168.1.1 -> 192.168.1.1
         ip = ip.substring(7);
+    } else if (ip && ip.includes(':') && ip.length > 20) {
+        // IPv6 thật: rút gọn để dễ đọc
+        // 2402:800:62a7:80c2:41c3:3905:7f89:dc06 -> 2402:800:...:dc06
+        const parts = ip.split(':');
+        if (parts.length > 4) {
+            ip = `${parts[0]}:${parts[1]}:...${parts[parts.length-1]}`;
+        }
     }
     
     return ip;
