@@ -743,7 +743,7 @@ router.get('/dashboard', isAdminOrStaff, async (req, res) => {
             customers,
             products
         ] = await Promise.all([
-            Order.find({ paymentStatus: 'paid' }).populate('items.product', 'name'),
+            Order.find({ paymentStatus: 'paid' }).select('totalPrice items').lean(),
             Order.find({ createdAt: { $gte: today }, paymentStatus: 'paid' }),
             Order.find({ createdAt: { $gte: thisWeek }, paymentStatus: 'paid' }),
             Order.find({ createdAt: { $gte: thisMonth }, paymentStatus: 'paid' }),
@@ -793,10 +793,10 @@ router.get('/dashboard', isAdminOrStaff, async (req, res) => {
 
         // Đơn hàng gần đây
         const recentOrders = await Order.find({})
-            .populate('user', 'name email')
-            .populate('items.product', 'name')
+            .populate('user', 'name')
             .sort({ createdAt: -1 })
-            .limit(10);
+            .limit(10)
+            .lean();
 
         res.render('admin/dashboard', {
             totalStats,
@@ -853,12 +853,12 @@ router.get('/orders', isAdminOrManager, async (req, res) => {
         }
         
         orders = await Order.find(query)
-            .populate('user', 'name email phone')
-            .populate('items.product', 'name image')
-            .populate('items.toppings', 'name')
+            .populate('user', 'name email')
+            .populate('items.product', 'name')
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean();
             
         // Đếm tổng số đơn hàng
         const totalOrders = await Order.countDocuments(query);
@@ -1080,12 +1080,12 @@ router.get('/payments', isAdminOrManager, async (req, res) => {
         
         // Lấy danh sách thanh toán
         const payments = await Payment.find(query)
-            .populate('user', 'name email phone')
-            .populate('order', 'totalPrice createdAt status')
-            .populate('processedBy', 'name')
+            .populate('user', 'name email')
+            .populate('order', 'totalPrice status')
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean();
             
         // Đếm tổng số thanh toán
         const totalPayments = await Payment.countDocuments(query);
@@ -1437,10 +1437,10 @@ router.get('/system-users', ensureAuthenticated, hasPermission('manage_users'), 
         }
         
         const systemUsers = await User.find(filters)
-            .populate('manager', 'name email')
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean();
             
         const totalUsers = await User.countDocuments(filters);
         const totalPages = Math.ceil(totalUsers / limit);
@@ -1843,8 +1843,8 @@ router.get('/audit-logs', isAdmin, async (req, res) => {
         }
         
         const auditLogs = await AuditLog.find(filters)
-            .select('timestamp user action resourceType resourceId ipAddress status details oldValues newValues errorMessage')
-            .populate('user', 'name email role employeeId')
+            .select('timestamp user action resourceType resourceId ipAddress status')
+            .populate('user', 'name email role')
             .sort({ timestamp: -1 })
             .skip(skip)
             .limit(limit)

@@ -12,8 +12,8 @@ module.exports = function(passport) {
                     return done(null, false, { message: 'Email này chưa được đăng ký' });
                 }
 
-                // Kiểm tra tài khoản có bị khóa không
-                if (user.isLocked) {
+                // Kiểm tra tài khoản có bị khóa không (BỎ QUA ADMIN)
+                if (user.isLocked && user.role !== 'admin') {
                     const lockUntil = user.lockUntil ? new Date(user.lockUntil) : null;
                     const now = new Date();
                     
@@ -34,18 +34,25 @@ module.exports = function(passport) {
                 // Match password
                 const isMatch = await bcrypt.compare(password, user.password);
                 if (!isMatch) {
-                    // Tăng số lần đăng nhập sai
-                    await user.incLoginAttempts();
-                    
-                    const attemptsLeft = 5 - (user.loginAttempts + 1);
-                    if (attemptsLeft > 0) {
-                        return done(null, false, { 
-                            message: `Mật khẩu không đúng. Còn ${attemptsLeft} lần thử trước khi tài khoản bị khóa.`
-                        });
+                    // Tăng số lần đăng nhập sai (BỎ QUA ADMIN)
+                    if (user.role !== 'admin') {
+                        await user.incLoginAttempts();
+                        
+                        const attemptsLeft = 5 - (user.loginAttempts + 1);
+                        if (attemptsLeft > 0) {
+                            return done(null, false, { 
+                                message: `Mật khẩu không đúng. Còn ${attemptsLeft} lần thử trước khi tài khoản bị khóa.`
+                            });
+                        } else {
+                            return done(null, false, { 
+                                message: 'Tài khoản đã bị khóa do đăng nhập sai quá 5 lần. Vui lòng liên hệ admin để mở khóa.',
+                                locked: true
+                            });
+                        }
                     } else {
+                        // Admin chỉ hiển thị lỗi mật khẩu, không khóa
                         return done(null, false, { 
-                            message: 'Tài khoản đã bị khóa do đăng nhập sai quá 5 lần. Vui lòng liên hệ admin để mở khóa.',
-                            locked: true
+                            message: 'Mật khẩu không đúng.'
                         });
                     }
                 }
