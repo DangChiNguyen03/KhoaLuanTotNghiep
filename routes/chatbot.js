@@ -6,9 +6,12 @@ const Voucher = require('../models/Voucher');
 const fetch = require('node-fetch');
 global.fetch = fetch;  // Override built-in fetch
 const { GoogleGenAI } = require('@google/genai');
+require('dotenv').config();  // Load .env để đọc GEMINI_API_KEY
 
 // Khởi tạo Gemini AI - SDK mới
-const genAI = new GoogleGenAI({});
+const genAI = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY
+});
 
 // Hàm gọi Gemini AI đơn giản
 async function callGeminiAI(message, products, bestSellers, vouchers) {
@@ -16,7 +19,7 @@ async function callGeminiAI(message, products, bestSellers, vouchers) {
         console.log('🤖 Đang gọi Gemini AI...');
         console.log(`📊 Database info: ${products.length} products, ${bestSellers.length} best sellers`);
         
-        // Tạo prompt với thông tin database
+        // Tạo prompt với thông tin database (tối ưu: giảm slice để prompt ngắn hơn)
         let prompt = `Bạn là tư vấn viên bán hàng AI của YOLOBrew - cửa hàng trà sữa. Trả lời ngắn gọn, thân thiện bằng tiếng Việt.
 
 QUAN TRỌNG: CHỈ khi khách hàng đã CHỐT/QUYẾT ĐỊNH MUA (vd: "cho tôi cà phê đen", "tôi muốn order", "lấy ly trà sữa") thì mới hướng dẫn:
@@ -31,10 +34,20 @@ Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 7:00-22:00, giao hàn
             prompt += `\n\nMENU CỬA HÀNG:`;
             const categories = [...new Set(products.map(p => p.category))];
             categories.forEach(category => {
-                const items = products.filter(p => p.category === category).slice(0, 5);
+                const items = products.filter(p => p.category === category).slice(0, 3);  // Giảm xuống 3 để nhanh
                 prompt += `\n• ${category}: `;
                 items.forEach((item, index) => {
-                    prompt += `${item.name} (${item.price?.toLocaleString()}đ)`;
+                    // Lấy giá từ price (topping) hoặc sizes (sản phẩm thường)
+                    let priceStr = 'Liên hệ';
+                    if (item.price) {
+                        priceStr = `${item.price.toLocaleString()}đ`;
+                    } else if (item.sizes && item.sizes.length > 0) {
+                        const validPrice = item.sizes.find(s => s.price);
+                        if (validPrice) {
+                            priceStr = `từ ${validPrice.price.toLocaleString()}đ`;
+                        }
+                    }
+                    prompt += `${item.name} (${priceStr})`;
                     if (index < items.length - 1) prompt += ', ';
                 });
             });
@@ -43,7 +56,7 @@ Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 7:00-22:00, giao hàn
         // Thêm sản phẩm bán chạy
         if (bestSellers.length > 0) {
             prompt += `\n\nSẢN PHẨM BÁN CHẠY: `;
-            bestSellers.slice(0, 5).forEach((item, index) => {
+            bestSellers.slice(0, 3).forEach((item, index) => {  // Giảm xuống 3 để nhanh
                 prompt += item.productName;
                 if (index < bestSellers.length - 1) prompt += ', ';
             });
@@ -73,29 +86,47 @@ Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 7:00-22:00, giao hàn
 Hãy trả lời dựa trên menu thực tế. CHỈ hướng dẫn đặt hàng khi khách hàng đã chốt/quyết định mua:`;
 
         // Retry logic với exponential backoff
-        const maxRetries = 3;
+        const maxRetries = 5;
         let retryCount = 0;
         
         while (retryCount < maxRetries) {
             try {
-                const result = await genAI.models.generateContent({
-                    model: "gemini-2.5-pro",  // Model stable, ít overload hơn
-                    contents: prompt  // Nội dung prompt là string đơn giản
+                // Tạo timeout promise
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Gemini timeout sau 30s')), 30000);
                 });
-                const text = result.text;  // Lấy text từ response
+                
+                // Race giữa API call và timeout
+                const apiPromise = genAI.models.generateContent({
+                    model: "gemini-2.5-flash",  // Model cập nhật 2025
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }]
+                });
+                
+                const result = await Promise.race([apiPromise, timeoutPromise]);
+                const text = result.text;
                 
                 console.log('✅ Gemini AI thành công!');
                 return text;
                 
             } catch (error) {
+                // Check nếu là timeout hoặc network error
+                const isTimeout = error.message?.includes('timeout') || 
+                                 error.message?.includes('ETIMEDOUT') ||
+                                 error.code === 'ETIMEDOUT';
+                
                 if (error.status === 503) {  // Overload
                     retryCount++;
-                    const delay = Math.pow(2, retryCount) * 1000;  // 2s, 4s, 8s
+                    const delay = Math.pow(2, retryCount) * 2000;  // 2s, 4s, 8s, 16s, 32s
                     console.log(`⚠️ Overload, retry sau ${delay/1000}s... (lần ${retryCount})`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 } else if (error.status === 429) {  // Quota exceeded
                     console.log('🚫 Quota exceeded - chuyển sang fallback ngay');
                     throw new Error('Quota exceeded - dùng fallback');
+                } else if (isTimeout && retryCount < maxRetries) {
+                    // Timeout - retry với delay ngắn hơn
+                    retryCount++;
+                    console.log(`⏱️ Timeout, retry lần ${retryCount}/${maxRetries}...`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 } else {
                     throw error;  // Lỗi khác không retry
                 }
@@ -105,7 +136,11 @@ Hãy trả lời dựa trên menu thực tế. CHỈ hướng dẫn đặt hàng
         throw new Error('Max retries reached for overload error');
         
     } catch (error) {
-        console.log('❌ Gemini lỗi chi tiết:', error); // In full error để debug
+        // Log lỗi chi tiết
+        const errorType = error.message?.includes('timeout') ? 'TIMEOUT' : 
+                         error.message?.includes('ETIMEDOUT') ? 'NETWORK_TIMEOUT' :
+                         error.status === 429 ? 'QUOTA_EXCEEDED' : 'UNKNOWN';
+        console.log(`❌ Gemini lỗi [${errorType}]:`, error.message || error);
         
         // Fallback thông minh với database
         console.log('🔄 Dùng AI fallback thông minh...');
@@ -137,7 +172,17 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
             if (milkTeaProducts.length > 0) {
                 let response = '🍵 **Menu trà sữa YOLOBrew:**\n\n';
                 milkTeaProducts.forEach(product => {
-                    response += `• ${product.name} - ${product.price?.toLocaleString()}đ\n`;
+                    // Lấy giá từ price (topping) hoặc sizes (sản phẩm thường)
+                    let priceStr = 'Liên hệ';
+                    if (product.price) {
+                        priceStr = `${product.price.toLocaleString()}đ`;
+                    } else if (product.sizes && product.sizes.length > 0) {
+                        const validPrice = product.sizes.find(s => s.price);
+                        if (validPrice) {
+                            priceStr = `từ ${validPrice.price.toLocaleString()}đ`;
+                        }
+                    }
+                    response += `• ${product.name} - ${priceStr}\n`;
                 });
                 // Không có khuyến mãi mặc định
                 
@@ -165,7 +210,17 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
                 const items = products.filter(p => p.category === category).slice(0, 3);
                 response += `🍹 **${category}:**\n`;
                 items.forEach(item => {
-                    response += `• ${item.name} - ${item.price?.toLocaleString()}đ\n`;
+                    // Lấy giá từ price (topping) hoặc sizes (sản phẩm thường)
+                    let priceStr = 'Liên hệ';
+                    if (item.price) {
+                        priceStr = `${item.price.toLocaleString()}đ`;
+                    } else if (item.sizes && item.sizes.length > 0) {
+                        const validPrice = item.sizes.find(s => s.price);
+                        if (validPrice) {
+                            priceStr = `từ ${validPrice.price.toLocaleString()}đ`;
+                        }
+                    }
+                    response += `• ${item.name} - ${priceStr}\n`;
                 });
                 response += '\n';
             });
@@ -264,7 +319,6 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
     return '🤔 Tôi hiểu bạn đang quan tâm đến YOLOBrew! \n\n✨ **Tôi có thể giúp bạn:**\n🍹 Tư vấn menu và sản phẩm\n💰 Báo giá chi tiết\n🏆 Gợi ý món bán chạy\n🎉 Thông tin khuyến mãi\n🛒 Hướng dẫn đặt hàng\n\nHãy cho tôi biết bạn muốn tìm hiểu về gì nhé! 😊';
 }
 
-
 router.post('/', async (req, res) => {
     const { message } = req.body;
     if (!message) {
@@ -275,6 +329,17 @@ router.post('/', async (req, res) => {
         // Lấy danh sách sản phẩm từ database
         const products = await Product.find({}).select('name description price category sizes').lean();
         console.log(`📦 Tìm thấy ${products.length} sản phẩm trong database`);
+        
+        // Debug: Log mẫu sản phẩm để kiểm tra cấu trúc giá
+        if (products.length > 0) {
+            const sample = products[0];
+            console.log(`🔍 Mẫu sản phẩm:`, {
+                name: sample.name,
+                category: sample.category,
+                price: sample.price,
+                sizes: sample.sizes
+            });
+        }
         
         // Lấy sản phẩm bán chạy từ đơn hàng
         const bestSellers = await Order.aggregate([
