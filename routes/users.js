@@ -168,8 +168,19 @@ router.get("/logout", async (req, res, next) => {
     if (err) {
       return next(err);
     }
-    req.flash("success_msg", "Đăng xuất thành công");
-    res.redirect("/users/login");
+    
+    // Destroy session completely
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Session destroy error:', err);
+      }
+      
+      // Clear cookie
+      res.clearCookie('connect.sid', { path: '/' });
+      
+      // Redirect without flash (session already destroyed)
+      res.redirect("/users/login");
+    });
   });
 });
 

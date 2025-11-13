@@ -222,18 +222,24 @@ app.use(
     secret: process.env.SESSION_SECRET || "secret",
     resave: false, // Không save session nếu không thay đổi
     saveUninitialized: false, // Không tạo session cho user chưa login
+    name: 'connect.sid', // Tên cookie session
     store: MongoStore.create({
-      mongoUrl: "mongodb://127.0.0.1:27017/bubble-tea-shop",
+      mongoUrl: process.env.MONGO_URI || "mongodb://127.0.0.1:27017/bubble-tea-shop",
       touchAfter: 24 * 3600, // Chỉ update session 1 lần/ngày nếu không thay đổi
       crypto: {
         secret: process.env.SESSION_SECRET || "secret"
-      }
+      },
+      ttl: 7 * 24 * 60 * 60, // 7 ngày (giống maxAge)
+      autoRemove: 'native' // Tự động xóa session hết hạn
     }),
     cookie: {
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 ngày
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' // HTTPS trong production
-    }
+      secure: process.env.NODE_ENV === 'production', // HTTPS trong production
+      sameSite: 'lax' // Bảo vệ CSRF
+    },
+    rolling: true, // Reset maxAge mỗi request
+    unset: 'destroy' // Destroy session khi unset
   })
 );
 
