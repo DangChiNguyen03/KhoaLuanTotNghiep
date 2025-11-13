@@ -216,6 +216,15 @@ app.use(express.json({ limit: '10mb' }));
 app.use(methodOverride("_method"));
 app.use(logger);
 
+// Middleware để ngăn Cloudflare cache cookie
+app.use((req, res, next) => {
+  // Ngăn Cloudflare cache các trang có session/cookie
+  res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 // Session với MongoStore (production-ready)
 app.use(
   session({
