@@ -63,6 +63,7 @@
                                 <div>
                                     <h4>{{overview.totalOrders}}</h4>
                                     <p class="mb-0">Tổng đơn hàng</p>
+                                    <small>{{formatDate dateRange.startDate}} - {{formatDate dateRange.endDate}}</small>
                                 </div>
                                 <div class="align-self-center">
                                     <i class="fas fa-shopping-cart fa-2x"></i>
@@ -78,6 +79,7 @@
                                 <div>
                                     <h4>{{formatCurrency overview.totalRevenue}}</h4>
                                     <p class="mb-0">Tổng doanh thu</p>
+                                    <small>Từ {{overview.totalOrders}} đơn hàng</small>
                                 </div>
                                 <div class="align-self-center">
                                     <i class="fas fa-dollar-sign fa-2x"></i>
