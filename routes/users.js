@@ -60,9 +60,24 @@ router.post("/login", loginRateLimiter, (req, res, next) => {
         // Audit trail for successful login
         await auditLogin(req, true);
         
-        req.flash('success_msg', 'Đăng nhập thành công!');
-        // Always redirect to homepage after login
-        return res.redirect("/");
+        // DEBUG: Log session info
+        console.log('📊 DEBUG LOGIN:');
+        console.log('   User:', user.email);
+        console.log('   Session ID:', req.sessionID);
+        console.log('   Session passport:', req.session.passport);
+        console.log('   Cookie:', req.session.cookie);
+        
+        // QUAN TRỌNG: Save session trước khi redirect
+        req.session.save((err) => {
+          if (err) {
+            console.error('❌ Session save error:', err);
+            return next(err);
+          }
+          
+          req.flash('success_msg', 'Đăng nhập thành công!');
+          console.log('✅ Session saved, redirecting to homepage');
+          return res.redirect("/");
+        });
       } catch (error) {
         console.error('❌ Error in login process:', error);
         req.flash('success_msg', 'Đăng nhập thành công!');

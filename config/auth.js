@@ -25,6 +25,7 @@ module.exports = {
     if (!req.isAuthenticated()) {
       return next();
     }
-    res.redirect('/dashboard');      
+    // Redirect về trang chủ thay vì dashboard
+    res.redirect('/');      
   }
 };
