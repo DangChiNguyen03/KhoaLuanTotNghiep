@@ -168,7 +168,7 @@
                                                         {{#if this.toppings.length}}
                                                         <br>
                                                         <small class="text-info">
-                                                            +{{#each this.toppings}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}
+                                                            {{#each this.toppings}}{{#if this.name}}{{this.name}}{{#unless @last}}, {{/unless}}{{/if}}{{/each}}
                                                         </small>
                                                         {{/if}}
                                                         {{#if this.sugarLevel}}

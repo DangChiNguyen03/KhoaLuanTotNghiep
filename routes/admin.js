@@ -743,7 +743,7 @@ router.get('/dashboard', isAdminOrStaff, async (req, res) => {
             customers,
             products
         ] = await Promise.all([
-            Order.find({ paymentStatus: 'paid' }).select('totalPrice items').lean(),
+            Order.find({ paymentStatus: 'paid' }).select('totalPrice items').populate('items.product', 'name').lean(),
             Order.find({ createdAt: { $gte: today }, paymentStatus: 'paid' }),
             Order.find({ createdAt: { $gte: thisWeek }, paymentStatus: 'paid' }),
             Order.find({ createdAt: { $gte: thisMonth }, paymentStatus: 'paid' }),
@@ -854,7 +854,7 @@ router.get('/orders', isAdminOrManager, async (req, res) => {
         
         orders = await Order.find(query)
             .populate('user', 'name email')
-            .populate('items.product', 'name')
+            .populate('items.product', 'name image')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
