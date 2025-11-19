@@ -4,9 +4,9 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Voucher = require('../models/Voucher');
 const fetch = require('node-fetch');
-global.fetch = fetch;  // Override built-in fetch
+global.fetch = fetch;  
 const { GoogleGenAI } = require('@google/genai');
-require('dotenv').config();  // Load .env để đọc GEMINI_API_KEY
+require('dotenv').config();  
 
 // Khởi tạo Gemini AI - SDK mới
 const genAI = new GoogleGenAI({
@@ -24,17 +24,17 @@ async function callGeminiAI(message, products, bestSellers, vouchers) {
 
 QUAN TRỌNG: CHỈ khi khách hàng đã CHỐT/QUYẾT ĐỊNH MUA (vd: "cho tôi cà phê đen", "tôi muốn order", "lấy ly trà sữa") thì mới hướng dẫn:
 - Đăng ký tài khoản trên website để đặt hàng online
-- Hoặc gọi hotline 0123-456-789 để đặt hàng  
+- Hoặc gọi hotline 0398154589 để đặt hàng  
 - Hoặc ghé trực tiếp cửa hàng
 
-Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 7:00-22:00, giao hàng miễn phí bán kính 3km.`;
+Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 6:00-22:00, giao hàng miễn phí bán kính 3km.`;
 
         // Thêm menu từ database
         if (products.length > 0) {
             prompt += `\n\nMENU CỬA HÀNG:`;
             const categories = [...new Set(products.map(p => p.category))];
             categories.forEach(category => {
-                const items = products.filter(p => p.category === category).slice(0, 3);  // Giảm xuống 3 để nhanh
+                const items = products.filter(p => p.category === category).slice(0, 3);  
                 prompt += `\n• ${category}: `;
                 items.forEach((item, index) => {
                     // Lấy giá từ price (topping) hoặc sizes (sản phẩm thường)
@@ -86,7 +86,7 @@ Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 7:00-22:00, giao hàn
 Hãy trả lời dựa trên menu thực tế. CHỈ hướng dẫn đặt hàng khi khách hàng đã chốt/quyết định mua:`;
 
         // Retry logic với exponential backoff
-        const maxRetries = 5;
+        const maxRetries = 3;
         let retryCount = 0;
         
         while (retryCount < maxRetries) {
@@ -189,16 +189,16 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
                 // Chỉ thêm hướng dẫn đặt hàng khi khách đã chốt
                 if (isOrdering) {
                     response += '\n\n🛒 **ĐẶT HÀNG NGAY:**\n';
-                    response += '• 🌐 Đăng ký tài khoản trên website\n';
-                    response += '• 📞 Gọi hotline: 0123-456-789\n';
-                    response += '• 🏪 Ghé trực tiếp cửa hàng 😊';
+                    response += '• 🌐 Đăng ký → Đăng nhập → Thêm vào giỏ hàng → Thanh toán VNPay\n';
+                    response += '• 📞 Gọi hotline: 0398154589\n';
+                    response += '• 🏪 Ghé trực tiếp cửa hàng (6:00-22:00) 😊';
                 } else {
                     response += '\n\nBạn muốn thử món nào không? 😊';
                 }
                 return response;
             }
         }
-        return '🍵 Chúng tôi có nhiều loại trà sữa ngon! Bạn có thể xem menu đầy đủ hoặc liên hệ 0123-456-789 để được tư vấn chi tiết! 😊';
+        return '🍵 Chúng tôi có nhiều loại trà sữa ngon! Bạn có thể xem menu đầy đủ hoặc liên hệ 0398154589 để được tư vấn chi tiết! 😊';
     }
     
     // Menu - dùng database thực tế
@@ -229,15 +229,15 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
             // Chỉ thêm hướng dẫn đặt hàng khi khách đã chốt
             if (isOrdering) {
                 response += '\n\n🛒 **ĐẶT HÀNG NGAY:**\n';
-                response += '• 🌐 Đăng ký tài khoản trên website\n';
-                response += '• 📞 Gọi hotline: 0123-456-789\n';
-                response += '• 🏪 Ghé trực tiếp cửa hàng 😊';
+                response += '• 🌐 Đăng ký → Đăng nhập → Thêm vào giỏ hàng → Thanh toán VNPay\n';
+                response += '• 📞 Gọi hotline: 0398154589\n';
+                response += '• 🏪 Ghé trực tiếp cửa hàng (6:00-22:00) 😊';
             } else {
                 response += '\n\nBạn muốn biết chi tiết món nào không? 😊';
             }
             return response;
         }
-        return '📋 Chúng tôi có menu đa dạng! Liên hệ 0123-456-789 để được tư vấn chi tiết! 😊';
+        return '📋 Chúng tôi có menu đa dạng! Liên hệ 0398154589 để được tư vấn chi tiết! 😊';
     }
     
     // Sản phẩm bán chạy - dùng database thực tế
@@ -253,15 +253,15 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
             // Chỉ thêm hướng dẫn đặt hàng khi khách đã chốt
             if (isOrdering) {
                 response += '\n\n🛒 **ĐẶT HÀNG NGAY:**\n';
-                response += '• 🌐 Đăng ký tài khoản trên website\n';
-                response += '• 📞 Gọi hotline: 0123-456-789\n';
-                response += '• 🏪 Ghé trực tiếp cửa hàng 😊';
+                response += '• 🌐 Đăng ký → Đăng nhập → Thêm vào giỏ hàng → Thanh toán VNPay\n';
+                response += '• 📞 Gọi hotline: 0398154589\n';
+                response += '• 🏪 Ghé trực tiếp cửa hàng (6:00-22:00) 😊';
             } else {
                 response += '\n\nBạn có muốn thử món nào không? 😊';
             }
             return response;
         }
-        return '🏆 Sản phẩm bán chạy: Trà sữa trân châu, Cà phê sữa đá, Sinh tố bơ!\n📞 **Đặt hàng:** 0123-456-789 😊';
+        return '🏆 Sản phẩm bán chạy: Trà sữa trân châu, Cà phê sữa đá, Sinh tố bơ!\n📞 **Đặt hàng:** 0398154589 😊';
     }
     
     // Giá cả
@@ -302,18 +302,18 @@ function generateSmartFallback(message, products, bestSellers, vouchers) {
             
             if (isOrdering) {
                 response += '\n\n🛒 **ĐẶT HÀNG NGAY:**\n';
-                response += '• 🌐 Đăng ký tài khoản trên website\n';
-                response += '• 📞 Gọi hotline: 0123-456-789\n';
-                response += '• 🏪 Ghé trực tiếp cửa hàng 😊';
+                response += '• 🌐 Đăng ký → Đăng nhập → Thêm vào giỏ hàng → Thanh toán VNPay\n';
+                response += '• 📞 Gọi hotline: 0398154589\n';
+                response += '• 🏪 Ghé trực tiếp cửa hàng (6:00-22:00) 😊';
             }
             return response;
         }
-        return '🎉 Chúng tôi thường xuyên có các chương trình khuyến mãi hấp dẫn! Liên hệ 0123-456-789 để biết thêm chi tiết! 😊';
+        return '🎉 Chúng tôi thường xuyên có các chương trình khuyến mãi hấp dẫn! Liên hệ 0398154589 để biết thêm chi tiết! 😊';
     }
     
     // Đặt hàng
     if (msg.includes('đặt hàng') || msg.includes('order') || msg.includes('mua')) {
-        return '🛒 **CÁCH ĐẶT HÀNG TẠI YOLOBREW:**\n\n1️⃣ Chọn món yêu thích từ menu\n2️⃣ Thêm vào giỏ hàng\n3️⃣ Điền thông tin giao hàng\n4️⃣ Chọn phương thức thanh toán\n5️⃣ Xác nhận đơn hàng\n\n📞 **Hotline hỗ trợ:** 0123-456-789\n🚚 **Giao hàng:** 15-30 phút\n💳 **Thanh toán:** Tiền mặt, chuyển khoản, ví điện tử\n\nBạn cần hỗ trợ thêm gì không? 😊';
+        return '🛒 **CÁCH ĐẶT HÀNG TẠI YOLOBREW:**\n\n**📱 Đặt hàng online:**\n1️⃣ Đăng ký tài khoản trên website YOLOBrew\n2️⃣ Đăng nhập vào tài khoản\n3️⃣ Tìm kiếm sản phẩm yêu thích\n4️⃣ Chọn size, topping, độ ngọt, đá\n5️⃣ Thêm vào giỏ hàng\n6️⃣ Điền địa chỉ giao hàng\n7️⃣ Chọn phương thức thanh toán VNPay\n8️⃣ Xác nhận và thanh toán đơn hàng\n\n**📞 Đặt hàng qua điện thoại:**\n• Gọi hotline: 0398154589\n• Nhân viên sẽ tư vấn và nhận đơn\n\n**🏪 Đặt hàng tại cửa hàng:**\n• Ghé trực tiếp YOLOBrew\n• Giờ hoạt động: 6:00-22:00 hàng ngày\n\n🚚 **Giao hàng:** 15-30 phút (miễn phí 3km)\n💳 **Thanh toán:** VNPay, tiền mặt, chuyển khoản\n\nBạn muốn đặt hàng theo cách nào? 😊';
     }
     
     return '🤔 Tôi hiểu bạn đang quan tâm đến YOLOBrew! \n\n✨ **Tôi có thể giúp bạn:**\n🍹 Tư vấn menu và sản phẩm\n💰 Báo giá chi tiết\n🏆 Gợi ý món bán chạy\n🎉 Thông tin khuyến mãi\n🛒 Hướng dẫn đặt hàng\n\nHãy cho tôi biết bạn muốn tìm hiểu về gì nhé! 😊';
