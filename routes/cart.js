@@ -523,6 +523,19 @@ router.post("/checkout", ensureAuthenticated, async (req, res) => {
     });
     await order.save();
 
+    // Emit notification đơn hàng mới đến admin/manager/staff
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new-order', {
+        orderId: order._id,
+        customerName: user.name,
+        totalPrice: finalPrice,
+        paymentMethod: paymentMethod,
+        timestamp: new Date()
+      });
+      console.log('🔔 New order notification sent:', order._id);
+    }
+
     // Handle different payment methods
     if (paymentMethod === 'vnpay') {
       console.log(`✅ Order created for ${paymentMethod.toUpperCase()}:`, order._id);

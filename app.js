@@ -52,8 +52,14 @@ const hbs = exphbs.create({
     // Comparison Helpers
     eq: (a, b) => a === b,
     ne: (a, b) => a !== b,
-    or: (a, b) => a || b,
-    and: (a, b) => a && b,
+    or: function() {
+      // Support multiple arguments
+      return Array.prototype.slice.call(arguments, 0, -1).some(Boolean);
+    },
+    and: function() {
+      // Support multiple arguments
+      return Array.prototype.slice.call(arguments, 0, -1).every(Boolean);
+    },
     gt: (a, b) => a > b,
     lt: (a, b) => a < b,
     gte: (a, b) => a >= b,
@@ -122,6 +128,9 @@ const hbs = exphbs.create({
       return d.toISOString().split("T")[0];
     },
     getCurrentDate: () => new Date().toISOString().split("T")[0],
+    
+    // Debug Helper
+    json: (obj) => JSON.stringify(obj, null, 2),
 
     // String & Array Helpers
     substring: function (str, start, length) {
@@ -312,6 +321,42 @@ const server = app.listen(PORT, HOST, () => {
   // Khởi động auto cleanup sau khi server ready
   autoCleanupMiddleware();
 });
+
+// Setup Socket.io
+const { Server } = require('socket.io');
+const io = new Server(server);
+
+// Store connected users by role
+const connectedUsers = {
+  admin: new Set(),
+  manager: new Set(),
+  staff: new Set()
+};
+
+io.on('connection', (socket) => {
+  console.log('👤 User connected:', socket.id);
+  
+  // User registers their role
+  socket.on('register', (data) => {
+    const { role, userId } = data;
+    if (role && (role === 'admin' || role === 'manager' || role === 'staff')) {
+      socket.role = role;
+      socket.userId = userId;
+      connectedUsers[role].add(socket.id);
+      console.log(`✅ ${role} registered: ${socket.id}`);
+    }
+  });
+  
+  socket.on('disconnect', () => {
+    if (socket.role) {
+      connectedUsers[socket.role].delete(socket.id);
+      console.log(`👋 ${socket.role} disconnected: ${socket.id}`);
+    }
+  });
+});
+
+// Export io để dùng trong các routes khác
+app.set('io', io);
 
 // Handle server errors
 server.on("error", (error) => {

@@ -91,6 +91,26 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Debug route
+router.get('/debug-user', ensureAuthenticated, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        console.log('🔍 DEBUG USER:', {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            roleType: typeof user.role
+        });
+        
+        res.render('debug-user', {
+            user: user.toObject()
+        });
+    } catch (err) {
+        res.json({ error: err.message, user: req.user });
+    }
+});
+
 // Dashboard
 router.get('/dashboard', ensureAuthenticated, async (req, res) => {
     try {

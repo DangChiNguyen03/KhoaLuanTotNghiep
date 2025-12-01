@@ -30,6 +30,41 @@
 
       <ul class="navbar-nav">
         {{#if user}}
+          {{#if (or (eq user.role 'admin') (eq user.role 'manager') (eq user.role 'staff'))}}
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-cog me-1"></i>Quản lý
+              </a>
+              <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+                {{#if (eq user.role 'staff')}}
+                  {{!-- Staff chỉ thấy Quản lý Đơn hàng --}}
+                  <li><a class="dropdown-item" href="/admin/orders"><i class="fas fa-shopping-cart me-2"></i>Đơn hàng</a></li>
+                {{else}}
+                  {{!-- Admin và Manager thấy đầy đủ menu --}}
+                  <li><a class="dropdown-item" href="/admin/dashboard"><i class="fas fa-chart-bar me-2"></i>Dashboard</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="/admin/products"><i class="fas fa-box me-2"></i>Sản phẩm</a></li>
+                  <li><a class="dropdown-item" href="/admin/orders"><i class="fas fa-shopping-cart me-2"></i>Đơn hàng</a></li>
+                  <li><a class="dropdown-item" href="/admin/customers"><i class="fas fa-users me-2"></i>Khách hàng</a></li>
+                  <li><a class="dropdown-item" href="/admin/vouchers"><i class="fas fa-ticket-alt me-2"></i>Quản lý Voucher</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="/admin/payments"><i class="fas fa-credit-card me-2"></i>Quản lý Thanh toán</a></li>
+                  <li><a class="dropdown-item" href="/admin/payment-methods"><i class="fas fa-money-check-alt me-2"></i>Phương thức Thanh toán</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="/admin/system-users"><i class="fas fa-users-cog me-2"></i>Quản lý Nhân viên</a></li>
+                  {{#if (eq user.role 'admin')}}
+                    <li><a class="dropdown-item" href="/admin/login-logs"><i class="fas fa-shield-alt me-2"></i>Log Đăng nhập</a></li>
+                    <li><a class="dropdown-item" href="/admin/audit-logs"><i class="fas fa-clipboard-list me-2"></i>Audit Logs</a></li>
+                  {{/if}}
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="/admin/reports/customers"><i class="fas fa-chart-bar me-2"></i>Báo cáo Khách hàng</a></li>
+                  <li><a class="dropdown-item" href="/admin/reports/payments"><i class="fas fa-credit-card me-2"></i>Báo cáo Thanh toán</a></li>
+                  <li><a class="dropdown-item" href="/admin/reports/products"><i class="fas fa-box me-2"></i>Báo cáo Sản phẩm</a></li>
+                  <li><a class="dropdown-item" href="/admin/reports/sales"><i class="fas fa-chart-line me-2"></i>Báo cáo Doanh số</a></li>
+                {{/if}}
+              </ul>
+            </li>
+          {{/if}}
           <li class="nav-item">
             <a class="nav-link" href="/dashboard">
               <i class="fas fa-user me-1"></i>{{user.name}}

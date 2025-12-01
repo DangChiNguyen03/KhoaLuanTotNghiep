@@ -26,8 +26,13 @@ const DEFAULT_PERMISSIONS = {
     ],
     staff: [
         'view_dashboard',
+        'manage_products', 
         'manage_orders',
-        'manage_customers'
+        'manage_customers',
+        'manage_payments',
+        'manage_users',         // Staff giờ có thể quản lý users như manager
+        'view_reports'
+        // KHÔNG có view_login_logs và view_audit_logs (chỉ admin)
     ],
     customer: []
 };
