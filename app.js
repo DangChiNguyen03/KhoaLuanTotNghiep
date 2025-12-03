@@ -300,7 +300,7 @@ app.use("/admin", adminRoutes);
 app.use("/cart", cartRoutes);
 app.use("/orders", ordersRouter);
 app.use("/payment", paymentRoutes);
-app.use("/", profileRouter);
+app.use("/profile", profileRouter);
 
 // Error handler
 app.use((err, req, res, next) => {
