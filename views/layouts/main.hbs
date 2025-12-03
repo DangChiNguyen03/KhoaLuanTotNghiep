@@ -871,30 +871,12 @@
         
         function playNotificationSound() {
             try {
-                // Create Web Audio API beep sound
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // Create oscillator (tone generator)
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                // Configure sound
-                oscillator.frequency.value = 800; // Frequency in Hz
-                oscillator.type = 'sine'; // Wave type
-                
-                // Volume envelope
-                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-                
-                // Play sound
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.3);
-                
-                console.log('🔊 Notification sound played');
+                // Play custom notification sound
+                const audio = new Audio('/sounds/new-notification-022-370046.mp3');
+                audio.volume = 0.5; // Set volume to 50%
+                audio.play()
+                    .then(() => console.log('🔊 Notification sound played'))
+                    .catch(e => console.log('Sound play failed:', e));
             } catch (e) {
                 console.log('Sound play failed:', e);
             }
