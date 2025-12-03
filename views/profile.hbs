@@ -22,12 +22,25 @@
                                     <p><strong>Địa chỉ:</strong> {{#if user.address}}{{user.address}}{{else}}<em>Chưa cập nhật</em>{{/if}}</p>
                                     <p><strong>Ngày sinh:</strong> 
                                         {{#if user.birthday}}
-                                            {{formatDate user.birthday}} ({{calculateAge user.birthday}} tuổi)
+                                            {{formatDate user.birthday}} ({{calculateAge user.birthday}})
                                         {{else}}
                                             <em>Chưa cập nhật</em>
                                         {{/if}}
                                     </p>
-                                    <p><strong>Loại tài khoản:</strong> {{#if user.googleId}}Google{{else}}Thường{{/if}}</p>
+                                    <p><strong>Vai trò:</strong> 
+                                        {{#if (eq user.role 'admin')}}
+                                            <span class="badge bg-danger">Quản trị viên</span>
+                                        {{else if (eq user.role 'manager')}}
+                                            <span class="badge bg-warning text-dark">Quản lý</span>
+                                        {{else if (eq user.role 'staff')}}
+                                            <span class="badge bg-info text-dark">Nhân viên</span>
+                                        {{else}}
+                                            <span class="badge bg-success">Khách hàng</span>
+                                        {{/if}}
+                                        {{#if user.googleId}}
+                                            <span class="badge bg-secondary ms-2"><i class="fab fa-google me-1"></i>Google</span>
+                                        {{/if}}
+                                    </p>
                                 </div>
                             </div>
                         </div>
