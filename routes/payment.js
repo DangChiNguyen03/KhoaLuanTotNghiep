@@ -191,6 +191,20 @@ router.get('/vnpay/callback', async (req, res) => {
             };
             await payment.save();
 
+            // Emit notification đơn hàng mới đến admin/manager/staff (VNPay paid successfully)
+            const io = req.app.get('io');
+            if (io) {
+                const userInfo = await User.findById(order.user);
+                io.emit('new-order', {
+                    orderId: order._id,
+                    customerName: userInfo ? userInfo.name : 'Khách hàng',
+                    totalPrice: order.totalPrice,
+                    paymentMethod: 'vnpay',
+                    timestamp: new Date()
+                });
+                console.log('🔔 New order notification sent (VNPay paid):', order._id);
+            }
+
             // Clear user cart
             console.log('🧹 Clearing cart for user:', order.user);
             const cartClearResult = await User.updateOne(

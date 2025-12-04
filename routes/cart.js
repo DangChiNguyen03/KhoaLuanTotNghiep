@@ -523,17 +523,20 @@ router.post("/checkout", ensureAuthenticated, async (req, res) => {
     });
     await order.save();
 
-    // Emit notification đơn hàng mới đến admin/manager/staff
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('new-order', {
-        orderId: order._id,
-        customerName: user.name,
-        totalPrice: finalPrice,
-        paymentMethod: paymentMethod,
-        timestamp: new Date()
-      });
-      console.log('🔔 New order notification sent:', order._id);
+    // Emit notification ONLY for COD (paid immediately)
+    // VNPay notification will be sent after successful payment in callback
+    if (paymentMethod === 'cash') {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('new-order', {
+          orderId: order._id,
+          customerName: user.name,
+          totalPrice: finalPrice,
+          paymentMethod: paymentMethod,
+          timestamp: new Date()
+        });
+        console.log('🔔 New order notification sent (COD):', order._id);
+      }
     }
 
     // Handle different payment methods
