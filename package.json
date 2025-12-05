@@ -6,11 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-<<<<<<< HEAD
-    "optimize:images": "node scripts/optimize-images.js"
-=======
     "optimize:images": "node optimize-images.js"
->>>>>>> c7cab30 (toiuuanh)
   },
   "dependencies": {
     "@google/genai": "^1.29.1",
