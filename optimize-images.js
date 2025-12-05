@@ -2,8 +2,8 @@ const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
 
-const inputDir = path.join(__dirname, "src/images");
-const outputDir = path.join(__dirname, "dist/images");
+const inputDir = path.join(__dirname, "src/public/images");
+const outputDir = path.join(__dirname, "dist/public/images");
 
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
