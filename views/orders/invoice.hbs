@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hóa đơn #{{order._id}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            padding: 20px;
+            background: #fff;
+            color: #333;
+        }
+
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 2px solid #333;
+            padding: 30px;
+        }
+
+        /* Header */
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            border-bottom: 3px solid #ff6b35;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .company-info h1 {
+            font-size: 32px;
+            color: #ff6b35;
+            margin-bottom: 5px;
+        }
+
+        .company-info p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .invoice-meta {
+            text-align: right;
+        }
+
+        .invoice-meta h2 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .invoice-meta p {
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        /* Customer Info */
+        .customer-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .info-block h3 {
+            font-size: 16px;
+            color: #ff6b35;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .info-block p {
+            font-size: 14px;
+            margin: 5px 0;
+            line-height: 1.6;
+        }
+
+        /* Order Table */
+        .order-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .order-table thead {
+            background: #ff6b35;
+            color: white;
+        }
+
+        .order-table th {
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .order-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            font-size: 14px;
+        }
+
+        .order-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        /* Totals */
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 30px;
+        }
+
+        .totals-box {
+            min-width: 350px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .totals-row:last-child {
+            border-bottom: none;
+        }
+
+        .totals-row.highlight {
+            background: #ff6b35;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .totals-label {
+            font-weight: 500;
+        }
+
+        .totals-value {
+            font-weight: bold;
+        }
+
+        /* Footer */
+        .invoice-footer {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .invoice-footer p {
+            margin: 5px 0;
+        }
+
+        /* Print Button */
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+
+        .print-button:hover {
+            background: #e55a2b;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .invoice-container {
+                border: none;
+                padding: 0;
+            }
+
+            .print-button {
+                display: none;
+            }
+
+            .order-table tbody tr:hover {
+                background: transparent;
+            }
+        }
+
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+    </style>
+</head>
+<body>
+    <!-- Print Button -->
+    <button class="print-button" onclick="window.print()">
+        🖨️ In hóa đơn
+    </button>
+
+    <div class="invoice-container">
+        <!-- Header -->
+        <div class="invoice-header">
+            <div class="company-info">
+                <h1>🧋 YOLOBrew</h1>
+                <p><strong>Milk Tea Shop</strong></p>
+                <p>📍 123 Nguyễn Văn Linh, Quận 7, TP.HCM</p>
+                <p>📞 Hotline: 1900-1234</p>
+                <p>✉️ Email: contact@yolobrew.vn</p>
+            </div>
+            <div class="invoice-meta">
+                <h2>HÓA ĐƠN</h2>
+                <p><strong>Mã đơn:</strong> #{{order._id}}</p>
+                <p><strong>Ngày tạo:</strong> {{formatDate order.createdAt}}</p>
+            </div>
+        </div>
+
+        <!-- Customer & Payment Info -->
+        <div class="customer-section">
+            <div class="info-block">
+                <h3>📋 Thông tin khách hàng</h3>
+                <p><strong>Họ tên:</strong> {{order.user.name}}</p>
+                <p><strong>Email:</strong> {{order.user.email}}</p>
+                <p><strong>Số điện thoại:</strong> {{#if order.user.phone}}{{order.user.phone}}{{else}}Chưa cập nhật{{/if}}</p>
+                <p><strong>Địa chỉ:</strong> {{#if order.user.address}}{{order.user.address}}{{else}}Chưa cập nhật{{/if}}</p>
+            </div>
+            <div class="info-block">
+                <h3>💳 Thông tin thanh toán</h3>
+                <p><strong>Phương thức:</strong> 
+                    {{#if (eq order.paymentMethod 'cash')}}
+                        💵 Tiền mặt (COD)
+                    {{else if (eq order.paymentMethod 'vnpay')}}
+                        💳 VNPay
+                    {{else}}
+                        {{order.paymentMethod}}
+                    {{/if}}
+                </p>
+            </div>
+        </div>
+
+        <!-- Order Items Table -->
+        <table class="order-table">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Sản phẩm</th>
+                    <th class="text-center">Size</th>
+                    <th class="text-center">SL</th>
+                    <th class="text-right">Đơn giá</th>
+                    <th class="text-right">Thành tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each order.items}}
+                <tr>
+                    <td class="text-center">{{add @index 1}}</td>
+                    <td>
+                        <strong>{{this.product.name}}</strong>
+                        {{#if this.toppings}}
+                        <br><small style="color: #666;">
+                            Topping: {{#each this.toppings}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}
+                        </small>
+                        {{/if}}
+                        {{#if this.sugarLevel}}
+                        <br><small style="color: #666;">Đường: {{this.sugarLevel}}%</small>
+                        {{/if}}
+                        {{#if this.iceLevel}}
+                        <br><small style="color: #666;">Đá: {{this.iceLevel}}%</small>
+                        {{/if}}
+                    </td>
+                    <td class="text-center">{{this.size}}</td>
+                    <td class="text-center">{{this.quantity}}</td>
+                    <td class="text-right">{{formatCurrency this.price}}</td>
+                    <td class="text-right">{{formatCurrency (multiply this.price this.quantity)}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <!-- Totals -->
+        <div class="totals-section">
+            <div class="totals-box">
+                {{#if order.originalPrice}}
+                <div class="totals-row">
+                    <span class="totals-label">Tổng tiền hàng:</span>
+                    <span class="totals-value">{{formatCurrency order.originalPrice}}</span>
+                </div>
+                {{/if}}
+                {{#if order.voucher}}
+                <div class="totals-row">
+                    <span class="totals-label">Giảm giá ({{order.voucher.code}}):</span>
+                    <span class="totals-value" style="color: #ff6b35;">-{{formatCurrency order.voucher.discountAmount}}</span>
+                </div>
+                {{/if}}
+                <div class="totals-row highlight">
+                    <span class="totals-label">TỔNG CỘNG:</span>
+                    <span class="totals-value">{{formatCurrency order.totalPrice}}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="invoice-footer">
+            <p><strong>Cảm ơn quý khách đã mua hàng tại YOLOBrew! 🧋</strong></p>
+            <p>Hotline hỗ trợ: 1900-1234 | Website: www.yolobrew.vn</p>
+            <p style="font-style: italic; margin-top: 10px;">
+                Hóa đơn này được in bởi: {{user.name}} ({{user.role}}) - {{formatDate 'now'}}
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Auto print dialog when page loads (optional)
+        // window.onload = function() { window.print(); }
+    </script>
+</body>
+</html>

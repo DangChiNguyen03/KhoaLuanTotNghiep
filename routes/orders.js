@@ -87,4 +87,32 @@ router.get('/:id', ensureAuthenticated, async (req, res) => {
     }
 });
 
+// GET /orders/:id/invoice - In hóa đơn (chỉ admin/staff)
+router.get('/:id/invoice', ensureAuthenticated, async (req, res) => {
+    try {
+        // Kiểm tra quyền admin/manager/staff
+        if (!['admin', 'manager', 'staff'].includes(req.user.role)) {
+            return res.status(403).send('Chỉ nhân viên mới có quyền in hóa đơn!');
+        }
+
+        const order = await Order.findById(req.params.id)
+            .populate('user', 'name email phone address')
+            .populate('items.product', 'name category');
+
+        if (!order) {
+            return res.status(404).send('Không tìm thấy đơn hàng!');
+        }
+
+        // Render invoice template (no layout for printing)
+        res.render('orders/invoice', { 
+            layout: false,
+            order, 
+            user: req.user 
+        });
+    } catch (err) {
+        console.error('Invoice error:', err);
+        res.status(500).send('Lỗi tạo hóa đơn!');
+    }
+});
+
 module.exports = router;
