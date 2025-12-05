@@ -5,7 +5,8 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "optimize:images": "node scripts/optimize-images.js"
   },
   "dependencies": {
     "@google/genai": "^1.29.1",
@@ -32,6 +33,7 @@
     "ua-parser-js": "^2.0.4"
   },
   "devDependencies": {
-    "nodemon": "^2.0.21"
+    "nodemon": "^2.0.21",
+    "sharp": "^0.34.5"
   }
 }

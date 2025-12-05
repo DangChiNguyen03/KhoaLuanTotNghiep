@@ -203,6 +203,17 @@ const hbs = exphbs.create({
       if (!total || total === 0) return 0;
       return Math.round(((part || 0) / total) * 100);
     },
+
+    // Lazy loading image helper
+    lazyImg: function(src, alt = '', className = '', style = '') {
+      const Handlebars = require('handlebars');
+      const classes = className ? ` class="${className}"` : '';
+      const styles = style ? ` style="${style}"` : '';
+      const altText = alt ? ` alt="${alt}"` : '';
+      return new Handlebars.SafeString(
+        `<img data-src="${src}"${altText}${classes}${styles} loading="lazy">`
+      );
+    },
   },
   runtimeOptions: {
     allowProtoPropertiesByDefault: true,
@@ -215,12 +226,52 @@ app.set("view engine", ".hbs");
 app.set("views", path.join(__dirname, "views"));
 
 // Middleware
-app.use(compression()); // Nén response để giảm bandwidth
+app.use(compression({
+  level: 6, // Balance between compression speed and ratio
+  threshold: 1024, // Only compress files > 1KB
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Improved cache headers for static files
+app.use('/images', express.static(path.join(__dirname, 'public/images'), {
+  maxAge: '30d', // Cache images for 30 days
+  immutable: true,
+  setHeaders: (res, filePath) => {
+    res.set('Cache-Control', 'public, max-age=2592000, immutable');
+  }
+}));
+
+app.use('/css', express.static(path.join(__dirname, 'public/css'), {
+  maxAge: '7d',
+  setHeaders: (res) => {
+    res.set('Cache-Control', 'public, max-age=604800');
+  }
+}));
+
+app.use('/js', express.static(path.join(__dirname, 'public/js'), {
+  maxAge: '7d',
+  setHeaders: (res) => {
+    res.set('Cache-Control', 'public, max-age=604800');
+  }
+}));
+
+app.use('/sounds', express.static(path.join(__dirname, 'public/sounds'), {
+  maxAge: '30d',
+  setHeaders: (res) => {
+    res.set('Cache-Control', 'public, max-age=2592000');
+  }
+}));
+
+// General public folder (fallback)
 app.use(express.static(path.join(__dirname, "public"), {
-  maxAge: '1d', // Cache static files 1 ngày
+  maxAge: '1d',
   etag: true
 }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(methodOverride("_method"));
 app.use(logger);
