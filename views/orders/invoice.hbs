@@ -237,7 +237,6 @@
         <div class="invoice-header">
             <div class="company-info">
                 <h1>🧋 YOLOBrew</h1>
-                <p><strong>Milk Tea Shop</strong></p>
                 <p>📍 61 Lê Lợi, phường 5, Quận 1, Thành phố Hồ Chí Minh</p>
                 <p>📞 Hotline: 0398 154 589</p>
                 <p>✉️ Email: yoloxinchao@yolobrew.vn</p>
@@ -296,10 +295,10 @@
                         </small>
                         {{/if}}
                         {{#if this.sugarLevel}}
-                        <br><small style="color: #666;">Đường: {{this.sugarLevel}}%</small>
+                        <br><small style="color: #666;">Đường: {{this.sugarLevel}}</small>
                         {{/if}}
                         {{#if this.iceLevel}}
-                        <br><small style="color: #666;">Đá: {{this.iceLevel}}%</small>
+                        <br><small style="color: #666;">Đá: {{this.iceLevel}}</small>
                         {{/if}}
                     </td>
                     <td class="text-center">{{this.size}}</td>
@@ -336,7 +335,7 @@
         <!-- Footer -->
         <div class="invoice-footer">
             <p><strong>Cảm ơn quý khách đã mua hàng tại YOLOBrew! 🧋</strong></p>
-            <p>Hotline hỗ trợ: 0398 154 589 | Website: yolobrew.info.vn</p>
+            <p>Hotline hỗ trợ: 1900-1234 | Website: www.yolobrew.vn</p>
             <p style="font-style: italic; margin-top: 10px;">
                 Hóa đơn này được in bởi: {{user.name}} ({{user.role}}) - {{formatDate 'now'}}
             </p>
