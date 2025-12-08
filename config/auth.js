@@ -3,8 +3,7 @@ module.exports = {
     if (req.isAuthenticated()) {
       return next();
     }
-    
-    // Check if this is an AJAX request
+
     const isAjax = req.xhr || 
                    req.headers.accept?.indexOf('json') > -1 ||
                    req.headers['content-type']?.includes('application/json') ||
@@ -25,7 +24,6 @@ module.exports = {
     if (!req.isAuthenticated()) {
       return next();
     }
-    // Redirect về trang chủ thay vì dashboard
     res.redirect('/');      
   }
 };

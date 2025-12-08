@@ -24,14 +24,14 @@ const {
     logAuditAction 
 } = require('../middleware/auditTrail');
 
-// Login logs route - MUST be before root route - Chỉ admin mới xem được
+// Login logs - chỉ admin
 router.get('/login-logs', isAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 20;
         const skip = (page - 1) * limit;
         
-        // Filters
+        // Lọc
         const filters = {};
         if (req.query.status) filters.loginStatus = req.query.status;
         if (req.query.user) {
@@ -61,7 +61,7 @@ router.get('/login-logs', isAdmin, async (req, res) => {
         
         const matchConditions = filters;
         
-        // Tự động đánh dấu session cũ là inactive (sau 2 giờ không hoạt động)
+        // Auto đánh dấu session cũ inactive (sau 2h)
         const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
         const expiredSessions = await LoginLog.find({
             isActive: true,
@@ -84,7 +84,7 @@ router.get('/login-logs', isAdmin, async (req, res) => {
             );
         }
         
-        // Lấy danh sách logs với phân trang và lọc
+        // Lấy logs với phân trang
         const logs = await LoginLog.find(matchConditions)
             .populate('user', 'name email role')
             .sort({ loginTime: -1 })
@@ -94,7 +94,7 @@ router.get('/login-logs', isAdmin, async (req, res) => {
         const totalLogs = await LoginLog.countDocuments(filters);
         const totalPages = Math.ceil(totalLogs / limit);
         
-        // Statistics - tổng toàn bộ (không áp dụng filters)
+        // Thống kê tổng
         const allStats = await LoginLog.aggregate([
             {
                 $group: {
@@ -104,11 +104,11 @@ router.get('/login-logs', isAdmin, async (req, res) => {
             }
         ]);
 
-        // Debug counts to verify data presence
+        // Kiểm tra số liệu
         const successCount = await LoginLog.countDocuments({ loginStatus: 'success' });
         const failedCount = await LoginLog.countDocuments({ loginStatus: 'failed' });
         
-        // Tính hoạt động đáng ngờ trong 24h
+        // Hoạt động đáng ngờ 24h
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const suspiciousLogs = await LoginLog.find({
             $or: [
@@ -143,7 +143,7 @@ router.get('/login-logs', isAdmin, async (req, res) => {
     }
 });
 
-// Export CSV login logs theo filter hiện tại
+// Export CSV login logs
 router.get('/login-logs/export', isAdmin, async (req, res) => {
     try {
         const filters = {};
@@ -203,12 +203,12 @@ router.get('/login-logs/export', isAdmin, async (req, res) => {
     }
 });
 
-// Admin Dashboard - Main route  
+// Admin Dashboard  
 router.get('/', isAdmin, (req, res) => {
     res.redirect('/admin/dashboard');
 });
 
-// Multer configuration for file uploads
+// Config upload file
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const dir = 'public/images/products';
@@ -370,12 +370,12 @@ router.delete('/products/delete/:id', isAdminOrStaff, async (req, res) => {
     }
 });
 
-// ===== CUSTOMER MANAGEMENT ROUTES =====
+// Quản lý khách hàng
 
 // Danh sách khách hàng
 router.get('/customers', async (req, res) => {
     
-    // Check permissions manually with detailed logging
+    // Kiểm tra quyền
     if (!req.user) {
         console.log('❌ No user found in request');
         req.flash('error_msg', 'Vui lòng đăng nhập để tiếp tục');
@@ -548,7 +548,7 @@ router.delete('/customers/:id', isAdmin, async (req, res) => {
     }
 });
 
-// Route POST backup cho xóa khách hàng (nếu method override không hoạt động)
+// POST backup xóa khách hàng
 router.post('/customers/:id/delete', isAdmin, async (req, res) => {
     try {
         console.log('🗑️ POST /customers/:id/delete được gọi với ID:', req.params.id);
@@ -656,7 +656,7 @@ router.post('/vouchers', isAdminOrStaff, async (req, res) => {
             applicableCategory: applicableCategory || null,
             startTime: startTime ? parseInt(startTime) : null,
             endTime: endTime ? parseInt(endTime) : null,
-            // Handle applicableRoles - convert to array if single value
+            // Xử lý applicableRoles
             applicableRoles: Array.isArray(applicableRoles) ? applicableRoles : (applicableRoles ? [applicableRoles] : ['admin', 'manager', 'staff', 'customer'])
         };
 
@@ -700,7 +700,7 @@ router.post('/vouchers/delete/:id', isAdminOrStaff, async (req, res) => {
 });
 
 
-// ===== REPORTING ROUTES =====
+// Báo cáo
 
 // Product Reportard thống kê doanh số
 router.get('/dashboard', isAdminOrStaff, async (req, res) => {
@@ -708,7 +708,7 @@ router.get('/dashboard', isAdminOrStaff, async (req, res) => {
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
-        // Fix: Create new Date object for week calculation to avoid mutating 'now'
+        // Tính tuần
         const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
         const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // Convert Sunday (0) to 6, others to day-1
         const thisWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysFromMonday);
@@ -717,7 +717,7 @@ router.get('/dashboard', isAdminOrStaff, async (req, res) => {
         const thisYear = new Date(now.getFullYear(), 0, 1);
         
 
-        // Thống kê tổng quan
+        // Thống kê
         const totalStats = {
             totalRevenue: 0,
             totalOrders: 0,
@@ -1164,7 +1164,7 @@ router.put('/payments/:id/status', isAdminOrStaff, async (req, res) => {
     }
 });
 
-// Backup route POST cho payment status update (nếu PUT không hoạt động)
+// POST backup update payment status
 router.post('/payments/:id/status', isAdminOrStaff, async (req, res) => {
     try {
         console.log('🔧 POST /payments/:id/status called (backup route)');
@@ -1337,7 +1337,7 @@ router.post('/init-payment-methods', isAdmin, async (req, res) => {
 
 // ==================== LOGIN LOGS MANAGEMENT ====================
 
-// DUPLICATE ROUTE REMOVED - Already defined above
+// Route đã xóa - trùng lặp
 
 // API để lấy thống kê login theo thời gian
 router.get('/api/login-stats', isAdmin, async (req, res) => {
@@ -1397,7 +1397,7 @@ router.post('/login-logs/:id/mark-risk', isAdmin, async (req, res) => {
 // ==================== SYSTEM USERS MANAGEMENT ====================
 
 
-// DEBUG: Route to activate current user - NO PERMISSION CHECK
+// Debug: Activate user
 router.get('/activate-me', ensureAuthenticated, async (req, res) => {
     try {
         console.log('🔧 Activating user:', req.user.email);
@@ -1421,7 +1421,7 @@ router.get('/system-users', ensureAuthenticated, hasPermission('manage_users'), 
         const limit = 20;
         const skip = (page - 1) * limit;
         
-        // Filters
+        // Lọc
         const filters = { role: { $in: ['admin', 'manager', 'staff'] } };
         if (req.query.role) filters.role = req.query.role;
         if (req.query.department) filters.department = req.query.department;
@@ -1498,13 +1498,13 @@ router.post('/system-users', hasPermission('manage_users'), async (req, res) => 
             hireDate, salary, manager, permissions, phone, address, birthday 
         } = req.body;
         
-        // Validate required fields
+        // Validate
         if (!name || !email || !password || !role || !employeeId || !department) {
             req.flash('error_msg', 'Vui lòng điền đầy đủ thông tin bắt buộc');
             return res.redirect('/admin/system-users');
         }
         
-        // Check if email or employeeId already exists
+        // Kiểm tra email/employeeId trùng
         const existingUser = await User.findOne({
             $or: [{ email }, { employeeId }]
         });
@@ -1655,7 +1655,7 @@ router.put('/system-users/:id', hasPermission('manage_users'), async (req, res) 
 // Cập nhật system user (POST method - backup for method override issues)
 router.post('/system-users/:id', hasPermission('manage_users'), async (req, res) => {
     try {
-        // Check if this is a PUT request via method override
+        // Kiểm tra PUT request
         if (req.body._method === 'PUT') {
             const { 
                 name, email, role, employeeId, department, 
@@ -1665,13 +1665,13 @@ router.post('/system-users/:id', hasPermission('manage_users'), async (req, res)
             console.log('🔄 Updating system user:', req.params.id);
             console.log('📝 Update data:', { name, email, role, employeeId, department });
             
-            // Validate required fields
+            // Validate
             if (!name || !email || !role || !employeeId || !department) {
                 req.flash('error_msg', 'Vui lòng điền đầy đủ thông tin bắt buộc');
                 return res.redirect('/admin/system-users');
             }
             
-            // Check if email or employeeId already exists (excluding current user)
+            // Kiểm tra email/employeeId trùng (excluding current user)
             const existingUser = await User.findOne({
                 $and: [
                     { _id: { $ne: req.params.id } },
@@ -1829,7 +1829,7 @@ router.get('/audit-logs', isAdmin, async (req, res) => {
         const limit = 50;
         const skip = (page - 1) * limit;
         
-        // Filters
+        // Lọc
         const filters = {};
         if (req.query.user) filters.user = req.query.user;
         if (req.query.action) filters.action = req.query.action;
@@ -1887,7 +1887,7 @@ router.get('/audit-logs', isAdmin, async (req, res) => {
     }
 });
 
-// Export CSV cho audit logs
+// Export CSV audit logs
 router.get('/audit-logs/export', isAdmin, async (req, res) => {
     try {
         const filters = {};
@@ -2007,7 +2007,7 @@ router.get('/api/suspicious-activity', hasPermission('manage_users'), async (req
 router.get('/reports/customers', async (req, res) => {
     console.log('🚪 Customer report route accessed by user:', req.user?.email, 'role:', req.user?.role);
     
-    // Check permissions manually with detailed logging
+    // Kiểm tra quyền
     if (!req.user) {
         console.log('❌ No user found in request');
         req.flash('error_msg', 'Vui lòng đăng nhập để tiếp tục');
@@ -2449,7 +2449,7 @@ router.get('/reports/customers', async (req, res) => {
             }
         };
         
-        // Export functionality
+        // Export
         if (exportFormat === 'json') {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Content-Disposition', `attachment; filename=customer-report-${reportStartDate.toISOString().split('T')[0]}-to-${reportEndDate.toISOString().split('T')[0]}.json`);
@@ -2529,7 +2529,7 @@ router.get('/test/sales-data', isAdmin, async (req, res) => {
         const endToday = new Date(vietnamNow.getFullYear(), vietnamNow.getMonth(), vietnamNow.getDate(), 23, 59, 59);
         const last30Days = new Date(vietnamNow.getFullYear(), vietnamNow.getMonth(), vietnamNow.getDate() - 30, 0, 0, 0);
         
-        // Check orders in different ranges
+        // Kiểm tra orders
         const allOrders = await Order.find({}).sort({ createdAt: -1 }).limit(10);
         const todayOrders = await Order.find({ 
             createdAt: { $gte: today, $lte: endToday } 
@@ -2538,7 +2538,7 @@ router.get('/test/sales-data', isAdmin, async (req, res) => {
             createdAt: { $gte: last30Days, $lte: endToday } 
         });
         
-        // Check order status distribution
+        // Phân bố trạng thái order
         const ordersByStatus = await Order.aggregate([
             { $group: { _id: '$status', count: { $sum: 1 }, totalAmount: { $sum: '$totalPrice' } } }
         ]);
@@ -2677,7 +2677,7 @@ router.post('/fix/payment-status', isAdmin, async (req, res) => {
     }
 });
 
-// Debug Payment Status
+// Debug payment
 router.get('/debug/payment-status', isAdmin, async (req, res) => {
     try {
         // Tìm user với email cụ thể
@@ -2756,25 +2756,25 @@ router.get('/debug/sales-quick', isAdmin, async (req, res) => {
     }
 });
 
-// Debug Database Data
+// Debug database
 router.get('/debug/data', isAdmin, async (req, res) => {
     try {
-        // Check Orders
+        // Orders
         const orderCount = await Order.countDocuments();
         const ordersByStatus = await Order.aggregate([
             { $group: { _id: '$status', count: { $sum: 1 } } }
         ]);
         
-        // Check Payments
+        // Payments
         const paymentCount = await Payment.countDocuments();
         const paymentsByStatus = await Payment.aggregate([
             { $group: { _id: '$status', count: { $sum: 1 } } }
         ]);
         
-        // Check recent Orders
+        // Recent orders
         const recentOrders = await Order.find().sort({ createdAt: -1 }).limit(5).populate('user', 'name');
         
-        // Check recent Payments
+        // Recent payments
         const recentPayments = await Payment.find().sort({ createdAt: -1 }).limit(5).populate('user', 'name');
         
         const debugData = {
@@ -2849,7 +2849,7 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
         const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
         const reportEndDate = endDate ? new Date(endDate + 'T23:59:59') : defaultEndDate;
         
-        // Debug logs
+        // Debug
         console.log('💳 Payment Report - Date range:', {
             startDate: reportStartDate.toISOString(),
             endDate: reportEndDate.toISOString(),
@@ -2863,7 +2863,7 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
         if (paymentMethod) paymentFilter.paymentMethod = paymentMethod;
         if (status) paymentFilter.status = status;
         
-        // Debug: Check total payments in DB
+        // Debug total payments
         const totalPaymentsInDB = await Payment.countDocuments();
         const paymentsInRange = await Payment.countDocuments(paymentFilter);
         console.log('💳 Payment counts:', { totalPaymentsInDB, paymentsInRange });
@@ -2904,7 +2904,7 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
         
         console.log('💳 Payment stats result (EXCLUDING CANCELLED ORDERS):', paymentStats[0]);
         
-        // Debug: So sánh với tổng payments không filter
+        // Debug query
         const allPaymentStats = await Payment.aggregate([
             { $match: paymentFilter },
             {
@@ -3193,7 +3193,7 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
         
         // Payment processing time analysis (REMOVED)
         
-        // Debug logs for processing time (REMOVED)
+        // Debug for processing time (REMOVED)
         
         // Fake data logic for processing time (REMOVED)
         
@@ -3220,7 +3220,7 @@ router.get('/reports/payments', hasPermission('view_reports'), async (req, res) 
             // processingTime: finalProcessingTime (REMOVED)
         };
         
-        // Export functionality
+        // Export
         if (exportFormat === 'json') {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Content-Disposition', `attachment; filename=payment-report-${reportStartDate.toISOString().split('T')[0]}-to-${reportEndDate.toISOString().split('T')[0]}.json`);
@@ -3618,7 +3618,7 @@ router.get('/reports/products', hasPermission('view_reports'), async (req, res) 
         // Removed unnecessary aggregations for better performance
         // (categoryPerformance, lowStockProducts, productTrends, priceAnalysis, recentProducts, seasonalAnalysis)
         
-        // Debug logs
+        // Debug
         console.log('📦 Product Report - Date range:', {
             startDate: reportStartDate.toISOString(),
             endDate: reportEndDate.toISOString()
@@ -3700,7 +3700,7 @@ router.get('/reports/products', hasPermission('view_reports'), async (req, res) 
             totalCategoryRevenue
         };
         
-        // Export functionality
+        // Export
         if (exportFormat === 'json') {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Content-Disposition', `attachment; filename=product-report-${reportStartDate.toISOString().split('T')[0]}-to-${reportEndDate.toISOString().split('T')[0]}.json`);
@@ -3960,7 +3960,7 @@ router.get('/reports/sales', hasPermission('view_reports'), async (req, res) => 
             ])
         ]);
 
-        // Debug logs
+        // Debug
         console.log('📊 Main products revenue:', revenueByCategory);
         console.log('📊 Topping revenue:', toppingRevenue);
         

@@ -23,16 +23,16 @@ const paymentRoutes = require("./routes/payment");
 
 const app = express();
 
-// Trust proxy để lấy đúng IP address từ headers
+// Trust proxy để lấy IP từ headers
 app.set("trust proxy", true);
 
-// Kết nối MongoDB với connection pooling
+// Kết nối MongoDB
 mongoose
   .connect("mongodb://127.0.0.1:27017/bubble-tea-shop", {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    maxPoolSize: 10, // Tối đa 10 connections
-    minPoolSize: 2,  // Tối thiểu 2 connections
+    maxPoolSize: 10,
+    minPoolSize: 2,
     socketTimeoutMS: 45000,
     serverSelectionTimeoutMS: 5000,
   })
@@ -42,14 +42,14 @@ mongoose
     process.exit(1);
   });
 
-// Handlebars + Helpers
+// Setup Handlebars
 const hbs = exphbs.create({
   defaultLayout: "main",
   extname: ".hbs",
   layoutsDir: path.join(__dirname, "views", "layouts"),
   partialsDir: path.join(__dirname, "views", "partials"),
   helpers: {
-    // Comparison Helpers
+    // So sánh
     eq: (a, b) => a === b,
     ne: (a, b) => a !== b,
     or: function() {
@@ -80,7 +80,7 @@ const hbs = exphbs.create({
       }, 0);
     },
 
-    // Formatting Helpers
+    // Format dữ liệu
     formatDate: function (date) {
       if (!date) return "";
       const d = new Date(date);
@@ -129,10 +129,10 @@ const hbs = exphbs.create({
     },
     getCurrentDate: () => new Date().toISOString().split("T")[0],
     
-    // Debug Helper
+    // Debug
     json: (obj) => JSON.stringify(obj, null, 2),
 
-    // String & Array Helpers
+    // Xử lý string
     substring: function (str, start, length) {
       if (!str) return "";
       const stringValue = str.toString();
@@ -144,7 +144,7 @@ const hbs = exphbs.create({
     },
     json: (context) => JSON.stringify(context),
 
-    // Logic Helpers
+    // Logic
     range: function (start, end) {
       const result = [];
       for (let i = start; i <= end; i++) {
@@ -164,29 +164,29 @@ const hbs = exphbs.create({
       return age > 0 ? age + " tuổi" : "Không hợp lệ";
     },
 
-    // Layout Helper
+    // Layout
     section: function (name, options) {
       if (!this._sections) this._sections = {};
       this._sections[name] = options.fn(this);
       return null;
     },
 
-    // Price Helper - Consistent price calculation for products and toppings
+    // Tính giá sản phẩm
     getPrice: function (product) {
       if (!product) return 0;
-      // For toppings, use price field first, then sizes[0].price as fallback
+      // Topping thì lấy price hoặc sizes[0].price
       if (product.category === 'Topping') {
         return product.price || (product.sizes && product.sizes[0] ? product.sizes[0].price : 0);
       }
-      // For regular products, return price field if exists
+      // Sản phẩm thường thì lấy price
       return product.price || 0;
     },
 
-    // Sum topping prices consistently
+    // Tính tổng giá topping
     sumToppingPrices: function (toppings, size) {
       if (!Array.isArray(toppings)) return 0;
       return toppings.reduce((total, topping) => {
-        // For toppings, try to get size-specific price first, then fallback to direct price
+        // Lấy giá theo size, ko có thì lấy giá mặc định
         let toppingPrice = 0;
         if (size && topping.sizes && Array.isArray(topping.sizes)) {
           const sizeObj = topping.sizes.find(s => s.size === size);
@@ -198,13 +198,13 @@ const hbs = exphbs.create({
       }, 0);
     },
 
-    // Math Helpers for payment statistics
+    // Tính % cho thống kê
     percentage: function (part, total) {
       if (!total || total === 0) return 0;
       return Math.round(((part || 0) / total) * 100);
     },
 
-    // Lazy loading image helper
+    // Lazy load ảnh
     lazyImg: function(src, alt = '', className = '', style = '') {
       const Handlebars = require('handlebars');
       const classes = className ? ` class="${className}"` : '';
@@ -227,8 +227,8 @@ app.set("views", path.join(__dirname, "views"));
 
 // Middleware
 app.use(compression({
-  level: 6, // Balance between compression speed and ratio
-  threshold: 1024, // Only compress files > 1KB
+  level: 6,
+  threshold: 1024,
   filter: (req, res) => {
     if (req.headers['x-no-compression']) return false;
     return compression.filter(req, res);
@@ -236,9 +236,9 @@ app.use(compression({
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Improved cache headers for static files
+// Cache cho static files
 app.use('/images', express.static(path.join(__dirname, 'public/images'), {
-  maxAge: '30d', // Cache images for 30 days
+  maxAge: '30d',
   immutable: true,
   setHeaders: (res, filePath) => {
     res.set('Cache-Control', 'public, max-age=2592000, immutable');

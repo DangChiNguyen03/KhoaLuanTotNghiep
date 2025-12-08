@@ -6,13 +6,12 @@ module.exports = function(passport) {
     passport.use(
         new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
             try {
-                // Match user
                 const user = await User.findOne({ email: email });
                 if (!user) {
                     return done(null, false, { message: 'Email này chưa được đăng ký' });
                 }
 
-                // Kiểm tra tài khoản có bị khóa không (BỎ QUA ADMIN)
+                // Check xem tk có bị khóa ko, admin thì bỏ qua
                 if (user.isLocked && user.role !== 'admin') {
                     const lockUntil = user.lockUntil ? new Date(user.lockUntil) : null;
                     const now = new Date();
@@ -31,10 +30,10 @@ module.exports = function(passport) {
                     }
                 }
 
-                // Match password
+                // So sánh password
                 const isMatch = await bcrypt.compare(password, user.password);
                 if (!isMatch) {
-                    // Tăng số lần đăng nhập sai (BỎ QUA ADMIN)
+                    // Tăng số lần nhập sai
                     if (user.role !== 'admin') {
                         await user.incLoginAttempts();
                         
@@ -50,19 +49,19 @@ module.exports = function(passport) {
                             });
                         }
                     } else {
-                        // Admin chỉ hiển thị lỗi mật khẩu, không khóa
+                        // Admin thì ko khóa
                         return done(null, false, { 
                             message: 'Mật khẩu không đúng.'
                         });
                     }
                 }
 
-                // Đăng nhập thành công - Reset số lần thử
+                // Đăng nhập ok thì reset lại
                 if (user.loginAttempts > 0) {
                     await user.resetLoginAttempts();
                 }
 
-                // Cập nhật lastLogin
+                // Update lastLogin
                 user.lastLogin = new Date();
                 await user.save();
 

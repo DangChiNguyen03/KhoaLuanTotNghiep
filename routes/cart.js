@@ -7,13 +7,13 @@ const Payment = require("../models/Payment");
 const Voucher = require("../models/Voucher");
 const { ensureAuthenticated } = require("../config/auth");
 
-// Middleware riêng cho cart operations
+// Middleware cho giỏ hàng
 const isAuthenticated = (req, res, next) => {
   if (req.isAuthenticated()) {
     return next();
   }
   
-  // Nếu là AJAX request, trả về JSON
+  // AJAX thì trả JSON
   if (req.xhr || req.headers.accept?.indexOf('json') > -1) {
     return res.status(401).json({
       success: false,
@@ -21,7 +21,7 @@ const isAuthenticated = (req, res, next) => {
     });
   }
   
-  // Nếu không phải AJAX, redirect
+  // Không phải AJAX thì redirect
   req.flash('error_msg', 'Vui lòng đăng nhập để truy cập');
   res.redirect('/users/login');
 };
@@ -59,15 +59,15 @@ router.get("/", ensureAuthenticated, async (req, res) => {
     cartItems.forEach((item) => {
       let itemPrice = 0;
       
-      // If this is a standalone topping product (category = "Topping")
+      // Nếu là topping riêng lẻ
       if (item.product.category === "Topping") {
-        itemPrice = item.product.price || 8000; // Use direct price or fallback
+        itemPrice = item.product.price || 8000;
       } else {
-        // Regular product with size-based pricing
+        // Sản phẩm thường có giá theo size
         const sizePrice = item.product.sizes?.find(s => s.size === item.size)?.price || 0;
         let toppingPrice = 0;
         
-        // Add topping prices
+        // Cộng giá topping
         item.toppingDetails.forEach((topping) => {
           const toppingSizePrice = topping.sizes?.find(s => s.size === item.size)?.price || topping.price || 0;
           toppingPrice += toppingSizePrice;
@@ -107,7 +107,7 @@ router.post("/add", isAuthenticated, async (req, res) => {
       return res.status(404).json({ success: false, message: "Không tìm thấy sản phẩm" });
     }
 
-    // Toppings feature removed - users must buy toppings as separate products
+    // User phải mua topping riêng
     const validToppings = [];
 
     const existingItemIndex = user.cart.findIndex((item) => {
@@ -231,16 +231,16 @@ router.get("/checkout", ensureAuthenticated, async (req, res) => {
     cartItems.forEach((item) => {
       let itemPrice = 0;
       
-      // If this is a standalone topping product (category = "Topping")
+      // Nếu là topping riêng lẻ
       if (item.product.category === "Topping") {
-        itemPrice = item.product.price || 8000; // Use direct price or fallback
+        itemPrice = item.product.price || 8000;
         console.log(`🧩 CHECKOUT - Standalone Topping: ${item.product.name}, Price: ${itemPrice}`);
       } else {
-        // Regular product with size-based pricing
+        // Sản phẩm thường có giá theo size
         const sizePrice = item.product.sizes?.find(s => s.size === item.size)?.price || 0;
         let toppingPrice = 0;
         
-        // Add topping prices
+        // Cộng giá topping
         item.toppingDetails.forEach((topping) => {
           const toppingSizePrice = topping.sizes?.find(s => s.size === item.size)?.price || topping.price || 0;
           toppingPrice += toppingSizePrice;
@@ -385,16 +385,16 @@ router.post("/checkout", ensureAuthenticated, async (req, res) => {
     for (const item of cartItems) {
       let singleItemPrice = 0;
       
-      // If this is a standalone topping product (category = "Topping")
+      // Nếu là topping riêng lẻ
       if (item.product.category === "Topping") {
         singleItemPrice = item.product.price || 8000; // Use direct price or fallback
         console.log(`🧩 POST CHECKOUT - Standalone Topping: ${item.product.name}, Price: ${singleItemPrice}`);
       } else {
-        // Regular product with size-based pricing
+        // Sản phẩm thường có giá theo size
         const sizePrice = item.product.sizes?.find(s => s.size === item.size)?.price || 0;
         let toppingPrice = 0;
         
-        // Add topping prices
+        // Cộng giá topping
         item.toppingDetails.forEach((topping) => {
           const toppingSizePrice = topping.sizes?.find(s => s.size === item.size)?.price || topping.price || 0;
           toppingPrice += toppingSizePrice;

@@ -1,8 +1,8 @@
 const AuditLog = require('../models/AuditLog');
 
-// Helper function to get client IP (compatible with proxy/load balancer)
+// Hàm lấy IP của client (tương thích với proxy/load balancer)
 const getClientIP = (req) => {
-    // Ưu tiên các headers từ proxy/load balancer (cho production deployment)
+    // Ưu tiên các headers từ proxy/load balancer
     let ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
              req.headers['x-real-ip'] ||
              req.headers['x-client-ip'] ||
@@ -12,15 +12,14 @@ const getClientIP = (req) => {
              req.ip ||
              '127.0.0.1';
     
-    // Chuyển đổi IPv6 thành IPv4
+    // Chuyển IPv6 thành IPv4
     if (ip === '::1') {
         ip = '127.0.0.1';
     } else if (ip && ip.startsWith('::ffff:')) {
-        // IPv6-mapped IPv4: ::ffff:192.168.1.1 -> 192.168.1.1
+        // IPv6-mapped IPv4
         ip = ip.substring(7);
     } else if (ip && ip.includes(':') && ip.length > 20) {
         // IPv6 thật: rút gọn để dễ đọc
-        // 2402:800:62a7:80c2:41c3:3905:7f89:dc06 -> 2402:800:...dc06
         const parts = ip.split(':');
         if (parts.length > 4) {
             ip = `${parts[0]}:${parts[1]}:...${parts[parts.length-1]}`;
@@ -30,7 +29,7 @@ const getClientIP = (req) => {
     return ip;
 };
 
-// Helper function to extract relevant data from request body
+// Hàm lấy dữ liệu quan trọng từ request body
 const extractRelevantData = (body, sensitiveFields = ['password', 'newPassword']) => {
     const cleanData = { ...body };
     sensitiveFields.forEach(field => {
@@ -41,7 +40,7 @@ const extractRelevantData = (body, sensitiveFields = ['password', 'newPassword']
     return cleanData;
 };
 
-// Main audit logging function
+// Hàm ghi log audit chính
 const logAuditAction = async (req, action, resourceType, resourceId = null, details = {}, oldValues = {}, newValues = {}, status = 'success', errorMessage = null) => {
     try {
         if (!req.user) {
@@ -69,20 +68,20 @@ const logAuditAction = async (req, action, resourceType, resourceId = null, deta
         await AuditLog.logAction(auditData);
     } catch (error) {
         console.error('Error in audit logging:', error);
-        // Don't throw error to prevent breaking the main operation
+        // Không throw error để không làm gán thao tác chính
     }
 };
 
-// Middleware for automatic audit logging based on route patterns
+// Middleware tự động ghi log audit theo route
 const auditMiddleware = (action, resourceType) => {
     return (req, res, next) => {
-        // Store original json and send methods
+        // Lưu phương thức json và send gốc
         const originalJson = res.json;
         const originalSend = res.send;
         
-        // Override res.json to capture response
+        // Override res.json để bắt response
         res.json = function(data) {
-            // Log the action after successful response
+            // Ghi log sau khi response thành công
             if (res.statusCode >= 200 && res.statusCode < 300) {
                 setImmediate(() => {
                     logAuditAction(
@@ -115,7 +114,7 @@ const auditMiddleware = (action, resourceType) => {
             return originalJson.call(this, data);
         };
         
-        // Override res.send for redirect responses
+        // Override res.send cho redirect
         res.send = function(data) {
             if (res.statusCode >= 200 && res.statusCode < 400) {
                 setImmediate(() => {
@@ -136,7 +135,7 @@ const auditMiddleware = (action, resourceType) => {
     };
 };
 
-// Specific audit functions for common actions
+// Hàm audit cụ thể cho các thao tác thường dùng
 const auditUserAction = (action) => auditMiddleware(action, 'User');
 const auditProductAction = (action) => auditMiddleware(action, 'Product');
 const auditOrderAction = (action) => auditMiddleware(action, 'Order');
@@ -144,7 +143,7 @@ const auditCustomerAction = (action) => auditMiddleware(action, 'Customer');
 const auditPaymentAction = (action) => auditMiddleware(action, 'Payment');
 const auditSystemAction = (action) => auditMiddleware(action, 'System');
 
-// Manual audit logging functions (for use in route handlers)
+// Hàm ghi log audit thủ công (dùng trong route handlers)
 const auditLogin = (req, success = true, errorMessage = null) => {
     return logAuditAction(
         req,

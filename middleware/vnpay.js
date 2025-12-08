@@ -2,9 +2,7 @@ const crypto = require('crypto');
 const moment = require('moment');
 const qs = require('qs');
 
-/**
- * VNPay Payment Helper Class
- */
+// Class hỗ trợ thanh toán VNPay
 class VNPayPayment {
     constructor() {
         this.tmnCode = process.env.VNPAY_TMN_CODE;
@@ -17,9 +15,7 @@ class VNPayPayment {
         this.locale = 'vn';
     }
 
-    /**
-     * Create VNPay payment URL
-     */
+    // Tạo URL thanh toán VNPay
     createPaymentUrl(params) {
         try {
             const {
@@ -53,16 +49,16 @@ class VNPayPayment {
                 vnpParams.vnp_BankCode = bankCode;
             }
 
-            // Sort parameters
+            // Sắp xếp tham số
             vnpParams = this.sortObject(vnpParams);
 
-            // Create signature
+            // Tạo chữ ký
             const signData = qs.stringify(vnpParams, { encode: false });
             const hmac = crypto.createHmac('sha512', this.hashSecret);
             const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
             vnpParams.vnp_SecureHash = signed;
 
-            // Create payment URL
+            // Tạo URL thanh toán
             const paymentUrl = this.url + '/paymentv2/vpcpay.html?' + qs.stringify(vnpParams, { encode: false });
 
             return {
@@ -83,16 +79,14 @@ class VNPayPayment {
         }
     }
 
-    /**
-     * Verify VNPay callback
-     */
+    // Xác thực callback từ VNPay
     verifyCallback(vnpParams) {
         try {
             const secureHash = vnpParams.vnp_SecureHash;
             delete vnpParams.vnp_SecureHash;
             delete vnpParams.vnp_SecureHashType;
 
-            // Sort parameters
+            // Sắp xếp tham số
             const sortedParams = this.sortObject(vnpParams);
             const signData = qs.stringify(sortedParams, { encode: false });
             
@@ -104,7 +98,7 @@ class VNPayPayment {
                 responseCode: vnpParams.vnp_ResponseCode,
                 transactionStatus: vnpParams.vnp_TransactionStatus,
                 orderId: vnpParams.vnp_TxnRef,
-                amount: parseInt(vnpParams.vnp_Amount) / 100, // Convert back from cents
+                amount: parseInt(vnpParams.vnp_Amount) / 100, // Chuyển từ cents về VNĐ
                 transactionId: vnpParams.vnp_TransactionNo,
                 bankCode: vnpParams.vnp_BankCode,
                 payDate: vnpParams.vnp_PayDate
@@ -119,9 +113,7 @@ class VNPayPayment {
         }
     }
 
-    /**
-     * Sort object by keys
-     */
+    // Sắp xếp object theo key
     sortObject(obj) {
         const sorted = {};
         const keys = Object.keys(obj).sort();
@@ -131,9 +123,7 @@ class VNPayPayment {
         return sorted;
     }
 
-    /**
-     * Get VNPay response message
-     */
+    // Lấy thông báo từ mã response
     getResponseMessage(responseCode) {
         const messages = {
             '00': 'Giao dịch thành công',

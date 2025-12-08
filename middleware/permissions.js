@@ -1,6 +1,6 @@
 const User = require('../models/User');
 
-// Default permissions for each role
+// Quyền mặc định cho từng vai trò
 const DEFAULT_PERMISSIONS = {
     admin: [
         'view_dashboard',
@@ -20,7 +20,7 @@ const DEFAULT_PERMISSIONS = {
         'manage_orders',
         'manage_customers',
         'manage_payments',
-        'manage_users',         // Manager có thể quản lý users
+        'manage_users',         
         'view_reports'
         // KHÔNG có view_login_logs và view_audit_logs
     ],
@@ -37,7 +37,7 @@ const DEFAULT_PERMISSIONS = {
     customer: []
 };
 
-// Middleware to check if user has specific permission
+// Middleware kiểm tra quyền cụ thể
 const hasPermission = (requiredPermission) => {
     return async (req, res, next) => {
         try {
@@ -46,28 +46,28 @@ const hasPermission = (requiredPermission) => {
                 return res.redirect('/users/login');
             }
 
-            // Get user with full permissions
+            // Lấy thông tin user đầy đủ
             const user = await User.findById(req.user._id);
             if (!user) {
                 req.flash('error_msg', 'Người dùng không tồn tại');
                 return res.redirect('/users/login');
             }
 
-            // Check if user is active
+            // Kiểm tra user còn hoạt động không
             if (!user.isActive) {
                 req.flash('error_msg', 'Tài khoản đã bị vô hiệu hóa');
                 return res.redirect('/users/login');
             }
 
-            // Get user permissions (custom or default based on role)
+            // Lấy quyền của user (custom hoặc mặc định theo role)
             let userPermissions = user.permissions && user.permissions.length > 0 
                 ? user.permissions 
                 : DEFAULT_PERMISSIONS[user.role] || [];
 
-            // Check if user has required permission
+            // Kiểm tra user có quyền yêu cầu không
             if (!userPermissions.includes(requiredPermission)) {
                 req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
-                // Always redirect to admin dashboard for admin routes
+                // Redirect về admin dashboard
                 return res.redirect('/admin/dashboard');
             }
 
@@ -75,13 +75,13 @@ const hasPermission = (requiredPermission) => {
         } catch (error) {
             console.error('Permission check error:', error);
             req.flash('error_msg', 'Có lỗi khi kiểm tra quyền truy cập');
-            // Always redirect to admin dashboard for admin routes
+            // Redirect về admin dashboard
             res.redirect('/admin/dashboard');
         }
     };
 };
 
-// Middleware to check if user has any of the specified permissions
+// Middleware kiểm tra user có ít nhất 1 trong các quyền
 const hasAnyPermission = (requiredPermissions) => {
     return async (req, res, next) => {
         try {
@@ -100,14 +100,14 @@ const hasAnyPermission = (requiredPermissions) => {
                 ? user.permissions 
                 : DEFAULT_PERMISSIONS[user.role] || [];
 
-            // Check if user has any of the required permissions
+            // Kiểm tra có ít nhất 1 quyền
             const hasAccess = requiredPermissions.some(permission => 
                 userPermissions.includes(permission)
             );
 
             if (!hasAccess) {
                 req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
-                // Always redirect to admin dashboard for admin routes
+                // Redirect về admin dashboard
                 return res.redirect('/admin/dashboard');
             }
 
@@ -115,13 +115,13 @@ const hasAnyPermission = (requiredPermissions) => {
         } catch (error) {
             console.error('Permission check error:', error);
             req.flash('error_msg', 'Có lỗi khi kiểm tra quyền truy cập');
-            // Always redirect to admin dashboard for admin routes
+            // Redirect về admin dashboard
             res.redirect('/admin/dashboard');
         }
     };
 };
 
-// Middleware to check role
+// Middleware kiểm tra vai trò
 const hasRole = (requiredRoles) => {
     return (req, res, next) => {
         if (!req.user) {
@@ -133,7 +133,7 @@ const hasRole = (requiredRoles) => {
         
         if (!roles.includes(req.user.role)) {
             req.flash('error_msg', 'Bạn không có quyền truy cập tính năng này');
-            // Redirect to admin dashboard if user is admin/staff, otherwise to regular dashboard
+            // Redirect tùy theo role
             if (['admin', 'manager', 'staff'].includes(req.user.role)) {
                 return res.redirect('/admin/dashboard');
             } else {
@@ -145,7 +145,7 @@ const hasRole = (requiredRoles) => {
     };
 };
 
-// Helper function to get user permissions
+// Hàm lấy quyền của user
 const getUserPermissions = async (userId) => {
     try {
         const user = await User.findById(userId);
@@ -160,7 +160,7 @@ const getUserPermissions = async (userId) => {
     }
 };
 
-// Helper function to check if user can access a specific feature
+// Hàm kiểm tra user có thể truy cập tính năng không
 const canAccess = async (userId, permission) => {
     try {
         const userPermissions = await getUserPermissions(userId);
@@ -171,7 +171,7 @@ const canAccess = async (userId, permission) => {
     }
 };
 
-// Middleware to add permissions to response locals for templates
+// Middleware thêm quyền vào locals cho template
 const addPermissionsToLocals = async (req, res, next) => {
     if (req.user) {
         try {

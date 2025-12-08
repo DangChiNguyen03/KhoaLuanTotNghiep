@@ -8,18 +8,18 @@ global.fetch = fetch;
 const { GoogleGenAI } = require('@google/genai');
 require('dotenv').config();  
 
-// Khởi tạo Gemini AI - SDK mới
+// Khởi tạo Gemini AI
 const genAI = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
 });
 
-// Hàm gọi Gemini AI đơn giản
+// Gọi Gemini AI
 async function callGeminiAI(message, products, bestSellers, vouchers) {
     try {
         console.log('🤖 Đang gọi Gemini AI...');
         console.log(`📊 Database info: ${products.length} products, ${bestSellers.length} best sellers`);
         
-        // Tạo prompt với thông tin database (tối ưu: giảm slice để prompt ngắn hơn)
+        // Tạo prompt với database
         let prompt = `Bạn là tư vấn viên bán hàng AI của YOLOBrew - cửa hàng trà sữa. Trả lời ngắn gọn, thân thiện bằng tiếng Việt.
 
 QUAN TRỌNG: CHỈ khi khách hàng đã CHỐT/QUYẾT ĐỊNH MUA (vd: "cho tôi cà phê đen", "tôi muốn order", "lấy ly trà sữa") thì mới hướng dẫn:
@@ -29,7 +29,7 @@ QUAN TRỌNG: CHỈ khi khách hàng đã CHỐT/QUYẾT ĐỊNH MUA (vd: "cho t
 
 Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 6:00-22:00, giao hàng miễn phí bán kính 3km.`;
 
-        // Thêm menu từ database
+        // Thêm menu
         if (products.length > 0) {
             prompt += `\n\nMENU CỬA HÀNG:`;
             const categories = [...new Set(products.map(p => p.category))];
@@ -53,7 +53,7 @@ Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 6:00-22:00, giao hàn
             });
         }
 
-        // Thêm sản phẩm bán chạy
+        // Sản phẩm bán chạy
         if (bestSellers.length > 0) {
             prompt += `\n\nSẢN PHẨM BÁN CHẠY: `;
             bestSellers.slice(0, 3).forEach((item, index) => {  // Giảm xuống 3 để nhanh
@@ -62,7 +62,7 @@ Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 6:00-22:00, giao hàn
             });
         }
 
-        // Thêm thông tin vouchers/mã giảm giá
+        // Vouchers
         if (vouchers.length > 0) {
             prompt += `\n\nMÃ GIẢM GIÁ HIỆN TẠI:`;
             vouchers.forEach(voucher => {
@@ -85,18 +85,18 @@ Thông tin cửa hàng: YOLOBrew Milk Tea Shop, mở cửa 6:00-22:00, giao hàn
 
 Hãy trả lời dựa trên menu thực tế. CHỈ hướng dẫn đặt hàng khi khách hàng đã chốt/quyết định mua:`;
 
-        // Retry logic với exponential backoff
+        // Retry logic
         const maxRetries = 3;
         let retryCount = 0;
         
         while (retryCount < maxRetries) {
             try {
-                // Tạo timeout promise
+                // Timeout 30s
                 const timeoutPromise = new Promise((_, reject) => {
                     setTimeout(() => reject(new Error('Gemini timeout sau 30s')), 30000);
                 });
                 
-                // Race giữa API call và timeout
+                // Race API vs timeout
                 const apiPromise = genAI.models.generateContent({
                     model: "gemini-2.5-flash",  // Model cập nhật 2025
                     contents: [{ role: 'user', parts: [{ text: prompt }] }]
@@ -109,7 +109,7 @@ Hãy trả lời dựa trên menu thực tế. CHỈ hướng dẫn đặt hàng
                 return text;
                 
             } catch (error) {
-                // Check nếu là timeout hoặc network error
+                // Kiểm tra timeout/network
                 const isTimeout = error.message?.includes('timeout') || 
                                  error.message?.includes('ETIMEDOUT') ||
                                  error.code === 'ETIMEDOUT';
@@ -123,12 +123,12 @@ Hãy trả lời dựa trên menu thực tế. CHỈ hướng dẫn đặt hàng
                     console.log('🚫 Quota exceeded - chuyển sang fallback ngay');
                     throw new Error('Quota exceeded - dùng fallback');
                 } else if (isTimeout && retryCount < maxRetries) {
-                    // Timeout - retry với delay ngắn hơn
+                    // Timeout retry
                     retryCount++;
                     console.log(`⏱️ Timeout, retry lần ${retryCount}/${maxRetries}...`);
                     await new Promise(resolve => setTimeout(resolve, 2000));
                 } else {
-                    throw error;  // Lỗi khác không retry
+                    throw error;
                 }
             }
         }
@@ -136,31 +136,31 @@ Hãy trả lời dựa trên menu thực tế. CHỈ hướng dẫn đặt hàng
         throw new Error('Max retries reached for overload error');
         
     } catch (error) {
-        // Log lỗi chi tiết
+        // Log lỗi
         const errorType = error.message?.includes('timeout') ? 'TIMEOUT' : 
                          error.message?.includes('ETIMEDOUT') ? 'NETWORK_TIMEOUT' :
                          error.status === 429 ? 'QUOTA_EXCEEDED' : 'UNKNOWN';
         console.log(`❌ Gemini lỗi [${errorType}]:`, error.message || error);
         
-        // Fallback thông minh với database
+        // Fallback thông minh
         console.log('🔄 Dùng AI fallback thông minh...');
         return generateSmartFallback(message, products, bestSellers, vouchers);
     }
 }
 
-// Fallback thông minh khi Gemini lỗi
+// Fallback khi Gemini lỗi
 function generateSmartFallback(message, products, bestSellers, vouchers) {
     const msg = message.toLowerCase();
     
-    // Kiểm tra nếu khách hàng đã chốt/quyết định mua
+    // Kiểm tra đã chốt mua
     const isOrdering = msg.includes('cho tôi') || msg.includes('lấy') || msg.includes('order') || 
                       msg.includes('mua') || msg.includes('đặt') || msg.includes('muốn');
     
-    // Chào hỏi
+    // Chào
     if (msg.includes('chào') || msg.includes('hello') || msg.includes('hi')) {
         return '👋 Xin chào! Tôi là trợ lý AI của YOLOBrew. Tôi có thể giúp bạn:\n\n🍹 Tư vấn menu và sản phẩm\n💰 Báo giá chi tiết\n🏆 Gợi ý món bán chạy\n🎉 Thông tin khuyến mãi\n🚚 Hướng dẫn đặt hàng\n\nBạn cần hỗ trợ gì ạ? 😊';
     }
-    // Hỏi về trà sữa - dùng database thực tế
+    // Hỏi về trà sữa
     if (msg.includes('trà sữa') || msg.includes('tra sua') || msg.includes('milk tea')) {
         if (products.length > 0) {
             const milkTeaProducts = products.filter(p => 

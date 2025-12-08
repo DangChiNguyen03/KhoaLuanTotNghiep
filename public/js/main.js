@@ -1,14 +1,14 @@
-// Ensure dropdown clicks navigate correctly instead of bubbling to parent
+// Ngăn dropdown click bị bubble lên parent
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.dropdown-menu .dropdown-item').forEach((el) => {
     el.addEventListener('click', (e) => {
-      // stop bubbling to prevent mis-click to first item
+      // Dừng event bubbling
       e.stopPropagation();
-      // let the browser follow href normally
+      // Để browser follow href bình thường
     });
   });
 });
-// Auto-hide alerts after 3 seconds
+// Tự động ẩn thông báo sau 3 giây
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
         const alerts = document.querySelectorAll('.alert');

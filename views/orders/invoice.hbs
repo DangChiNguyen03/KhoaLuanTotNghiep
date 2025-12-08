@@ -31,8 +31,8 @@
             justify-content: space-between;
             align-items: start;
             border-bottom: 3px solid #ff6b35;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         .company-info h1 {
@@ -64,11 +64,8 @@
 
         /* Customer Info */
         .customer-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
-            padding: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
             background: #f9f9f9;
             border-radius: 8px;
         }
@@ -76,22 +73,22 @@
         .info-block h3 {
             font-size: 16px;
             color: #ff6b35;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
         .info-block p {
             font-size: 14px;
-            margin: 5px 0;
-            line-height: 1.6;
+            margin: 3px 0;
+            line-height: 1.5;
         }
 
         /* Order Table */
         .order-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .order-table thead {
@@ -100,7 +97,7 @@
         }
 
         .order-table th {
-            padding: 12px;
+            padding: 10px;
             text-align: left;
             font-size: 14px;
             text-transform: uppercase;
@@ -108,7 +105,7 @@
         }
 
         .order-table td {
-            padding: 12px;
+            padding: 10px;
             border-bottom: 1px solid #ddd;
             font-size: 14px;
         }
@@ -129,7 +126,7 @@
         .totals-section {
             display: flex;
             justify-content: flex-end;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .totals-box {
@@ -237,9 +234,6 @@
         <div class="invoice-header">
             <div class="company-info">
                 <h1>🧋 YOLOBrew</h1>
-                <p>📍 61 Lê Lợi, phường 5, Quận 1, Thành phố Hồ Chí Minh</p>
-                <p>📞 Hotline: 0398 154 589</p>
-                <p>✉️ Email: yoloxinchao@yolobrew.vn</p>
             </div>
             <div class="invoice-meta">
                 <h2>HÓA ĐƠN</h2>
@@ -248,26 +242,13 @@
             </div>
         </div>
 
-        <!-- Customer & Payment Info -->
+        <!-- Customer Info -->
         <div class="customer-section">
             <div class="info-block">
                 <h3>📋 Thông tin khách hàng</h3>
                 <p><strong>Họ tên:</strong> {{order.user.name}}</p>
-                <p><strong>Email:</strong> {{order.user.email}}</p>
                 <p><strong>Số điện thoại:</strong> {{#if order.user.phone}}{{order.user.phone}}{{else}}Chưa cập nhật{{/if}}</p>
                 <p><strong>Địa chỉ:</strong> {{#if order.user.address}}{{order.user.address}}{{else}}Chưa cập nhật{{/if}}</p>
-            </div>
-            <div class="info-block">
-                <h3>💳 Thông tin thanh toán</h3>
-                <p><strong>Phương thức:</strong> 
-                    {{#if (eq order.paymentMethod 'cash')}}
-                        💵 Tiền mặt (COD)
-                    {{else if (eq order.paymentMethod 'vnpay')}}
-                        💳 VNPay
-                    {{else}}
-                        {{order.paymentMethod}}
-                    {{/if}}
-                </p>
             </div>
         </div>
 
@@ -291,14 +272,9 @@
                         <strong>{{this.product.name}}</strong>
                         {{#if this.toppings}}
                         <br><small style="color: #666;">
-                            Topping: {{#each this.toppings}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}
+                            Đường: {{this.sugarLevel}}<br>
+                            Đá: {{this.iceLevel}}
                         </small>
-                        {{/if}}
-                        {{#if this.sugarLevel}}
-                        <br><small style="color: #666;">Đường: {{this.sugarLevel}}</small>
-                        {{/if}}
-                        {{#if this.iceLevel}}
-                        <br><small style="color: #666;">Đá: {{this.iceLevel}}</small>
                         {{/if}}
                     </td>
                     <td class="text-center">{{this.size}}</td>
@@ -335,10 +311,6 @@
         <!-- Footer -->
         <div class="invoice-footer">
             <p><strong>Cảm ơn quý khách đã mua hàng tại YOLOBrew! 🧋</strong></p>
-            <p>Hotline hỗ trợ: 1900-1234 | Website: www.yolobrew.vn</p>
-            <p style="font-style: italic; margin-top: 10px;">
-                Hóa đơn này được in bởi: {{user.name}} ({{user.role}}) - {{formatDate 'now'}}
-            </p>
         </div>
     </div>
 
